@@ -84,7 +84,6 @@ effect fn main(args: List[String]) -> Result[Unit, String] = {
 
 <script type="module">
 import init, { compile_to_ts, parse_to_ast } from './pkg/almide_playground.js';
-import { transform } from 'https://unpkg.com/sucrase@3.35.0/dist/esm/index.js';
 
 let wasmReady = false;
 
@@ -98,27 +97,113 @@ async function boot() {
   }
 }
 
-function tsToJs(ts) {
-  // Replace Deno-specific entry point and runtime
-  let code = ts;
-  // Remove the Deno entry point line
-  code = code.replace(/\/\/ ---- Entry Point ----[\s\S]*$/, '');
-  // Replace Deno fs calls with browser stubs
-  code = code.replace(/Deno\.statSync\(p\)/g, '(() => { throw new Error("fs not available in browser") })()');
-  code = code.replace(/Deno\.readTextFileSync\(p\)/g, '"(fs not available)"');
-  code = code.replace(/Deno\.writeTextFileSync\([^)]+\)/g, 'undefined');
-  code = code.replace(/Deno\.readFileSync\(p\)/g, 'new Uint8Array()');
-  code = code.replace(/Deno\.writeFileSync\([^)]+\)/g, 'undefined');
-  code = code.replace(/Deno\.mkdirSync\([^)]+\)/g, 'undefined');
-  code = code.replace(/Deno\.args/g, '[]');
-  code = code.replace(/Deno\.exit\(\d+\)/g, 'undefined');
+// Browser-compatible JS runtime (no types, no Deno)
+const BROWSER_RUNTIME = `
+const __fs = {
+  exists(p) { throw new Error("fs not available in browser"); },
+  read_text(p) { throw new Error("fs not available in browser"); },
+  read_bytes(p) { throw new Error("fs not available in browser"); },
+  write(p, s) { throw new Error("fs not available in browser"); },
+  write_bytes(p, b) { throw new Error("fs not available in browser"); },
+  append(p, s) { throw new Error("fs not available in browser"); },
+  mkdir_p(p) { throw new Error("fs not available in browser"); },
+  exists_q(p) { throw new Error("fs not available in browser"); },
+};
+const __string = {
+  trim(s) { return s.trim(); },
+  split(s, sep) { return s.split(sep); },
+  join(arr, sep) { return arr.join(sep); },
+  len(s) { return s.length; },
+  pad_left(s, n, ch) { return s.padStart(n, ch); },
+  starts_with(s, prefix) { return s.startsWith(prefix); },
+  slice(s, start, end) { return end !== undefined ? s.slice(start, end) : s.slice(start); },
+  to_bytes(s) { return Array.from(new TextEncoder().encode(s)); },
+  contains(s, sub) { return s.includes(sub); },
+  starts_with_q(s, prefix) { return s.startsWith(prefix); },
+  ends_with_q(s, suffix) { return s.endsWith(suffix); },
+  to_upper(s) { return s.toUpperCase(); },
+  to_lower(s) { return s.toLowerCase(); },
+  to_int(s) { const n = parseInt(s, 10); if (isNaN(n)) throw new Error("invalid integer: " + s); return n; },
+  replace(s, from, to) { return s.split(from).join(to); },
+  char_at(s, i) { return i < s.length ? s[i] : null; },
+};
+const __list = {
+  len(xs) { return xs.length; },
+  get(xs, i) { return i < xs.length ? xs[i] : null; },
+  sort(xs) { return [...xs].sort(); },
+  contains(xs, x) { return xs.includes(x); },
+  each(xs, f) { xs.forEach(f); },
+  map(xs, f) { return xs.map(f); },
+  filter(xs, f) { return xs.filter(f); },
+  find(xs, f) { return xs.find(f) ?? null; },
+  fold(xs, init, f) { return xs.reduce(f, init); },
+};
+const __int = {
+  to_hex(n) { return (typeof n === "bigint" ? (n >= 0n ? n : n + (1n << 64n)).toString(16) : n.toString(16)); },
+  to_string(n) { return String(n); },
+};
+const __env = {
+  unix_timestamp() { return Math.floor(Date.now() / 1000); },
+  args() { return []; },
+};
+function __bigop(op, a, b) {
+  if (typeof a === "bigint" || typeof b === "bigint") {
+    const ba = typeof a === "bigint" ? a : BigInt(a);
+    const bb = typeof b === "bigint" ? b : BigInt(b);
+    switch(op) {
+      case "^": return ba ^ bb; case "*": return ba * bb; case "%": return ba % bb;
+      case "+": return ba + bb; case "-": return ba - bb; default: return ba;
+    }
+  }
+  switch(op) {
+    case "^": return a ^ b; case "*": return a * b; case "%": return a % b;
+    case "+": return a + b; case "-": return a - b; default: return a;
+  }
+}
+function __deep_eq(a, b) {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) { if (!__deep_eq(a[i], b[i])) return false; }
+    return true;
+  }
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const ka = Object.keys(a), kb = Object.keys(b);
+    if (ka.length !== kb.length) return false;
+    for (const k of ka) { if (!__deep_eq(a[k], b[k])) return false; }
+    return true;
+  }
+  return false;
+}
+function assert_eq(a, b) { if (!__deep_eq(a, b)) throw new Error("assert_eq: " + JSON.stringify(a) + " !== " + JSON.stringify(b)); }
+function assert_ne(a, b) { if (a === b) throw new Error("assert_ne: " + a + " === " + b); }
+function assert(c) { if (!c) throw new Error("assertion failed"); }
+function unwrap_or(x, d) { return x !== null ? x : d; }
+function __concat(a, b) { return typeof a === "string" ? a + b : [...a, ...b]; }
+`;
 
-  // Use sucrase to strip TypeScript types
-  const result = transform(code, {
-    transforms: ['typescript'],
-    disableESTransforms: true,
+function tsToJs(ts) {
+  // Extract only the user code (after "// ---- End Runtime ----", before "// ---- Entry Point ----")
+  let userCode = ts;
+  const endRuntime = userCode.indexOf('// ---- End Runtime ----');
+  if (endRuntime !== -1) {
+    userCode = userCode.substring(endRuntime + '// ---- End Runtime ----'.length);
+  }
+  const entryPoint = userCode.indexOf('// ---- Entry Point ----');
+  if (entryPoint !== -1) {
+    userCode = userCode.substring(0, entryPoint);
+  }
+
+  // Strip type annotations from user code with regex
+  // function name(x: type, y: type): rettype { → function name(x, y) {
+  userCode = userCode.replace(/function\s+(\w+)\s*\(([^)]*)\)\s*:\s*\w+[^{]*\{/g, (match, name, params) => {
+    const cleanParams = params.replace(/(\w+)\s*:\s*[^,)]+/g, '$1');
+    return `function ${name}(${cleanParams}) {`;
   });
-  return result.code;
+  // let/var x: type = → let/var x =
+  userCode = userCode.replace(/(let|var|const)\s+(\w+)\s*:\s*[^=]+=\s*/g, '$1 $2 = ');
+
+  return BROWSER_RUNTIME + userCode;
 }
 
 function captureOutput(code) {
