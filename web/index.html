@@ -35,7 +35,7 @@ button.ai:hover:not(:disabled) { background: #8b5cf6; }
 .output-area { flex: 1; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace; font-size: 13px; line-height: 1.6; border: none; resize: none; tab-size: 2; }
 .output-area { background: #0f172a; color: #a5f3fc; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 
-.editor-highlight span { font-family: inherit; font-size: inherit; line-height: inherit; }
+.editor-highlight span { font-family: inherit !important; font-size: inherit !important; line-height: inherit !important; }
 .output-area.error { color: #fca5a5; }
 .output-area.success { color: #86efac; }
 
@@ -435,9 +435,82 @@ window.showTab = function(name) {
   }
 };
 
-// --- Syntax Highlighting (Shiki + TextMate grammar) ---
+// --- Syntax Highlighting ---
 
 let shikiHighlighter = null;
+
+const HL_KEYWORDS = new Set([
+  'module','import','type','fn','let','var','if','then','else','match',
+  'effect','do','guard','ok','err','some','none','try','strict','pub',
+  'deriving','test','async','await','newtype','for','in','trait','impl','unsafe',
+  'and','or','not',
+]);
+const HL_BOOLS = new Set(['true','false']);
+const HL_BUILTINS = new Set(['println','eprintln','assert','assert_eq','assert_ne','unwrap_or']);
+const HL_MODULES = new Set(['string','list','int','env','fs']);
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlightFallback(code) {
+  let out = '', i = 0;
+  const len = code.length;
+  while (i < len) {
+    if (code[i] === '/' && code[i+1] === '/') {
+      let end = code.indexOf('\n', i); if (end === -1) end = len;
+      out += '<span style="color:#64748b;font-style:italic">' + escapeHtml(code.slice(i, end)) + '</span>';
+      i = end; continue;
+    }
+    if (code[i] === '"') {
+      let j = i + 1, s = '"';
+      while (j < len && code[j] !== '"') {
+        if (code[j] === '\\' && j+1 < len) { s += code[j] + code[j+1]; j += 2; }
+        else { s += code[j]; j++; }
+      }
+      if (j < len) { s += '"'; j++; }
+      out += '<span style="color:#86efac">' + escapeHtml(s) + '</span>';
+      i = j; continue;
+    }
+    if (code[i] >= '0' && code[i] <= '9') {
+      let j = i;
+      while (j < len && ((code[j] >= '0' && code[j] <= '9') || code[j] === '.')) j++;
+      out += '<span style="color:#fdba74">' + escapeHtml(code.slice(i, j)) + '</span>';
+      i = j; continue;
+    }
+    if (code[i] >= 'A' && code[i] <= 'Z') {
+      let j = i;
+      while (j < len && /[a-zA-Z0-9_]/.test(code[j])) j++;
+      out += '<span style="color:#67e8f9">' + escapeHtml(code.slice(i, j)) + '</span>';
+      i = j; continue;
+    }
+    if ((code[i] >= 'a' && code[i] <= 'z') || code[i] === '_') {
+      let j = i;
+      while (j < len && /[a-zA-Z0-9_]/.test(code[j])) j++;
+      if (j < len && code[j] === '?') j++;
+      const w = code.slice(i, j);
+      if (HL_KEYWORDS.has(w)) out += '<span style="color:#c084fc">' + escapeHtml(w) + '</span>';
+      else if (HL_BOOLS.has(w)) out += '<span style="color:#f9a8d4">' + escapeHtml(w) + '</span>';
+      else if (HL_BUILTINS.has(w) || HL_MODULES.has(w)) out += '<span style="color:#a5b4fc">' + escapeHtml(w) + '</span>';
+      else {
+        let k = j; while (k < len && code[k] === ' ') k++;
+        if (code[k] === '(') out += '<span style="color:#93c5fd">' + escapeHtml(w) + '</span>';
+        else out += escapeHtml(w);
+      }
+      i = j; continue;
+    }
+    if (i+1 < len) {
+      const two = code[i] + code[i+1];
+      if (['->','=>','|>','==','!=','<=','>=','++'].includes(two)) {
+        out += '<span style="color:#94a3b8">' + escapeHtml(two) + '</span>';
+        i += 2; continue;
+      }
+    }
+    out += escapeHtml(code[i]); i++;
+  }
+  if (!code.endsWith('\n')) out += '\n';
+  return out;
+}
 
 async function initShiki() {
   try {
@@ -445,19 +518,18 @@ async function initShiki() {
     const { createJavaScriptRegexEngine } = await import('https://esm.sh/shiki@3.2.1/engine/javascript');
     const grammarResp = await fetch('./almide.tmLanguage.json');
     const grammar = await grammarResp.json();
+    // Ensure name is lowercase for lang matching
+    grammar.name = 'almide';
     shikiHighlighter = await createHighlighterCore({
       themes: [import('https://esm.sh/shiki@3.2.1/themes/tokyo-night.mjs')],
       langs: [grammar],
       engine: createJavaScriptRegexEngine(),
     });
+    console.log('Shiki loaded');
     syncHighlight();
   } catch(e) {
-    console.warn('Shiki init failed, using fallback:', e);
+    console.warn('Shiki init failed, using fallback highlighter:', e);
   }
-}
-
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function syncHighlight() {
@@ -466,18 +538,14 @@ function syncHighlight() {
   const code = editor.value;
   if (shikiHighlighter) {
     try {
-      const html = shikiHighlighter.codeToHtml(code || ' ', {
-        lang: 'almide',
-        theme: 'tokyo-night',
-      });
-      // Extract inner content from shiki's <pre><code>...</code></pre>
+      const html = shikiHighlighter.codeToHtml(code || ' ', { lang: 'almide', theme: 'tokyo-night' });
       const match = html.match(/<pre[^>]*><code[^>]*>([\s\S]*)<\/code><\/pre>/);
-      hl.innerHTML = match ? match[1] : escapeHtml(code) + '\n';
+      hl.innerHTML = match ? match[1] : highlightFallback(code);
     } catch(e) {
-      hl.innerHTML = escapeHtml(code) + '\n';
+      hl.innerHTML = highlightFallback(code);
     }
   } else {
-    hl.innerHTML = escapeHtml(code) + '\n';
+    hl.innerHTML = highlightFallback(code);
   }
 }
 
