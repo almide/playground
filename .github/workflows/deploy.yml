@@ -40,7 +40,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('crate/Cargo.lock') }}
 
       - name: Update almide dependency
-        run: cd crate && cargo update -p almide
+        run: cd crate && cargo update almide
 
       - name: Build Wasm
         run: cd crate && wasm-pack build --target web --out-dir ../web/pkg
