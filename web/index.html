@@ -85,9 +85,9 @@ effect fn main(args: List[String]) -> Result[Unit, String] = {
   <span>Almide Playground — Powered by WebAssembly</span>
 </div>
 
-<script src="https://unpkg.com/sucrase@3.35.0/dist/index.js"></script>
 <script type="module">
 import init, { compile_to_ts, parse_to_ast } from './pkg/almide_playground.js';
+import { transform } from 'https://unpkg.com/sucrase@3.35.0/dist/esm/index.js';
 
 let wasmReady = false;
 
@@ -117,7 +117,7 @@ function tsToJs(ts) {
   code = code.replace(/Deno\.exit\(\d+\)/g, 'undefined');
 
   // Use sucrase to strip TypeScript types
-  const result = self.sucrase.transform(code, {
+  const result = transform(code, {
     transforms: ['typescript'],
     disableESTransforms: true,
   });
