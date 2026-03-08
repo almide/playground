@@ -600,8 +600,10 @@ window.generateCode = async function() {
   const provider = document.getElementById('ai-provider').value;
   const apiKey = document.getElementById('ai-key').value.trim();
   if (!apiKey) { alert('Please enter your API key'); return; }
-  const prompt = document.getElementById('ai-prompt').value.trim();
+  const promptEl = document.getElementById('ai-prompt');
+  const prompt = promptEl.value.trim();
   if (!prompt) { alert('Please describe what to generate'); return; }
+  promptEl.value = '';
   const model = document.getElementById('ai-model').value;
   const btn = document.getElementById('ai-btn');
   const editor = document.getElementById('editor');
