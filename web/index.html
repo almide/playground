@@ -8,23 +8,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg-deep: #08080a;
-  --bg-surface: #0e0e12;
-  --bg-elevated: #141418;
-  --bg-subtle: #1a1a20;
-  --border: #1e1e26;
-  --border-subtle: #28282f;
-  --text: #e8e6e3;
-  --text-secondary: #8a8a95;
-  --text-muted: #555560;
-  --accent: #8b1a2b;
-  --accent-light: #b8263a;
-  --accent-glow: rgba(139, 26, 43, 0.15);
+  --bg-deep: #131316;
+  --bg-surface: #1a1a1f;
+  --bg-elevated: #212127;
+  --bg-subtle: #28282f;
+  --border: #2e2e38;
+  --border-subtle: #383842;
+  --text: #ededeb;
+  --text-secondary: #a0a0ab;
+  --text-muted: #6b6b78;
+  --accent: #c43d52;
+  --accent-light: #d9576a;
+  --accent-glow: rgba(196, 61, 82, 0.18);
   --success: #2d6a4f;
   --success-text: #95d5b2;
-  --error: #9b2226;
-  --error-text: #e5989b;
-  --warn-text: #dda15e;
+  --error: #c43d52;
+  --error-text: #f0a0a8;
+  --warn-text: #e0b060;
   --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
   --sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
@@ -48,7 +48,7 @@ header h1 {
 }
 header .mark {
   width: 22px; height: 22px;
-  background: linear-gradient(135deg, #3a3a40, #1a1a1e);
+  background: linear-gradient(135deg, #48484f, #28282f);
   border-radius: 4px;
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 13px; color: var(--accent-light);
@@ -193,7 +193,7 @@ button.ai:hover:not(:disabled) {
 .repair-log .log-step.log-error { border-left-color: var(--error); }
 .repair-log .log-step.log-fix { border-left-color: var(--warn-text); }
 .repair-log .log-step.log-ok { border-left-color: var(--success); }
-.repair-log .log-step.log-fail { border-left-color: var(--error); background: #120a0a; }
+.repair-log .log-step.log-fail { border-left-color: var(--error); background: #1e1418; }
 .repair-log .log-label { font-weight: 500; margin-bottom: 4px; font-size: 11px; letter-spacing: 0.03em; }
 .repair-log .log-error .log-label { color: var(--error-text); }
 .repair-log .log-fix .log-label { color: var(--warn-text); }
@@ -742,7 +742,7 @@ function highlightFallback(code) {
   while (i < len) {
     if (code[i] === '/' && code[i+1] === '/') {
       let end = code.indexOf('\n', i); if (end === -1) end = len;
-      out += '<span style="color:#444450;font-style:italic">' + escapeHtml(code.slice(i, end)) + '</span>';
+      out += '<span style="color:#565f89;font-style:italic">' + escapeHtml(code.slice(i, end)) + '</span>';
       i = end; continue;
     }
     if (code[i] === '"') {
@@ -752,19 +752,19 @@ function highlightFallback(code) {
         else { s += code[j]; j++; }
       }
       if (j < len) { s += '"'; j++; }
-      out += '<span style="color:#5e8a6e">' + escapeHtml(s) + '</span>';
+      out += '<span style="color:#9ece6a">' + escapeHtml(s) + '</span>';
       i = j; continue;
     }
     if (code[i] >= '0' && code[i] <= '9') {
       let j = i;
       while (j < len && ((code[j] >= '0' && code[j] <= '9') || code[j] === '.')) j++;
-      out += '<span style="color:#b07d5e">' + escapeHtml(code.slice(i, j)) + '</span>';
+      out += '<span style="color:#ff9e64">' + escapeHtml(code.slice(i, j)) + '</span>';
       i = j; continue;
     }
     if (code[i] >= 'A' && code[i] <= 'Z') {
       let j = i;
       while (j < len && /[a-zA-Z0-9_]/.test(code[j])) j++;
-      out += '<span style="color:#8a8a95">' + escapeHtml(code.slice(i, j)) + '</span>';
+      out += '<span style="color:#2ac3de">' + escapeHtml(code.slice(i, j)) + '</span>';
       i = j; continue;
     }
     if ((code[i] >= 'a' && code[i] <= 'z') || code[i] === '_') {
@@ -772,24 +772,24 @@ function highlightFallback(code) {
       while (j < len && /[a-zA-Z0-9_]/.test(code[j])) j++;
       if (j < len && code[j] === '?') j++;
       const w = code.slice(i, j);
-      if (HL_KEYWORDS.has(w)) out += '<span style="color:#8b1a2b;font-weight:500">' + escapeHtml(w) + '</span>';
-      else if (HL_BOOLS.has(w)) out += '<span style="color:#b07d5e">' + escapeHtml(w) + '</span>';
-      else if (HL_BUILTINS.has(w) || HL_MODULES.has(w)) out += '<span style="color:#6e6e7a">' + escapeHtml(w) + '</span>';
+      if (HL_KEYWORDS.has(w)) out += '<span style="color:#bb9af7;font-weight:500">' + escapeHtml(w) + '</span>';
+      else if (HL_BOOLS.has(w)) out += '<span style="color:#ff9e64">' + escapeHtml(w) + '</span>';
+      else if (HL_BUILTINS.has(w) || HL_MODULES.has(w)) out += '<span style="color:#7aa2f7">' + escapeHtml(w) + '</span>';
       else {
         let k = j; while (k < len && code[k] === ' ') k++;
-        if (code[k] === '(') out += '<span style="color:#c0bfba">' + escapeHtml(w) + '</span>';
-        else out += '<span style="color:#9a9a9a">' + escapeHtml(w) + '</span>';
+        if (code[k] === '(') out += '<span style="color:#7dcfff">' + escapeHtml(w) + '</span>';
+        else out += '<span style="color:#c0caf5">' + escapeHtml(w) + '</span>';
       }
       i = j; continue;
     }
     if (i+1 < len) {
       const two = code[i] + code[i+1];
       if (['->','=>','|>','==','!=','<=','>=','++'].includes(two)) {
-        out += '<span style="color:#555560">' + escapeHtml(two) + '</span>';
+        out += '<span style="color:#89ddff">' + escapeHtml(two) + '</span>';
         i += 2; continue;
       }
     }
-    out += '<span style="color:#555560">' + escapeHtml(code[i]) + '</span>'; i++;
+    out += '<span style="color:#89ddff">' + escapeHtml(code[i]) + '</span>'; i++;
   }
   if (!code.endsWith('\n')) out += '\n';
   return out;
