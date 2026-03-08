@@ -8,14 +8,17 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; }
 
-header { padding: 12px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 16px; }
+header { padding: 12px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 header h1 { font-size: 18px; font-weight: 700; color: #a5b4fc; }
 header .subtitle { font-size: 13px; color: #64748b; }
 .actions { margin-left: auto; display: flex; gap: 8px; }
 button { padding: 6px 16px; border-radius: 6px; border: 1px solid #475569; background: #334155; color: #e2e8f0; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
 button:hover { background: #475569; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 button.primary { background: #4f46e5; border-color: #6366f1; }
-button.primary:hover { background: #6366f1; }
+button.primary:hover:not(:disabled) { background: #6366f1; }
+button.ai { background: #7c3aed; border-color: #8b5cf6; }
+button.ai:hover:not(:disabled) { background: #8b5cf6; }
 
 .panels { flex: 1; display: flex; overflow: hidden; }
 .panel { flex: 1; display: flex; flex-direction: column; }
@@ -32,6 +35,17 @@ textarea { background: #0f172a; color: #e2e8f0; outline: none; }
 .output-area.success { color: #86efac; }
 
 .status { padding: 4px 16px; background: #1e293b; border-top: 1px solid #334155; font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }
+
+/* AI Panel */
+.ai-bar { display: flex; gap: 8px; padding: 8px 16px; background: #1e293b; border-top: 1px solid #334155; align-items: center; }
+.ai-bar input[type="password"] { width: 200px; padding: 5px 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 12px; outline: none; }
+.ai-bar input[type="password"]:focus { border-color: #7c3aed; }
+.ai-bar input[type="text"] { flex: 1; padding: 5px 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 12px; outline: none; }
+.ai-bar input[type="text"]:focus { border-color: #7c3aed; }
+.ai-bar label { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+.ai-bar select { padding: 5px 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 12px; outline: none; }
+.ai-streaming { animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 </style>
 </head>
 <body>
@@ -77,6 +91,17 @@ effect fn main(args: List[String]) -> Result[Unit, String] = {
   </div>
 </div>
 
+<div class="ai-bar">
+  <label>API Key:</label>
+  <input type="password" id="ai-key" placeholder="sk-ant-..." />
+  <select id="ai-model">
+    <option value="claude-sonnet-4-20250514">Sonnet</option>
+    <option value="claude-haiku-4-5-20251001">Haiku</option>
+  </select>
+  <input type="text" id="ai-prompt" placeholder="Describe what to code in Almide... (e.g. &quot;fibonacci sequence&quot;)" />
+  <button class="ai" id="ai-btn" onclick="generateCode()">Generate</button>
+</div>
+
 <div class="status">
   <span id="status-text">Ready</span>
   <span>Almide Playground — Powered by WebAssembly</span>
@@ -95,7 +120,182 @@ async function boot() {
   } catch(e) {
     document.getElementById('status-text').textContent = 'Failed to load Wasm: ' + e;
   }
+  // Restore API key from localStorage
+  const saved = localStorage.getItem('almide-api-key');
+  if (saved) document.getElementById('ai-key').value = saved;
+  const savedModel = localStorage.getItem('almide-ai-model');
+  if (savedModel) document.getElementById('ai-model').value = savedModel;
 }
+
+// Save API key on change
+document.getElementById('ai-key').addEventListener('change', (e) => {
+  localStorage.setItem('almide-api-key', e.target.value);
+});
+document.getElementById('ai-model').addEventListener('change', (e) => {
+  localStorage.setItem('almide-ai-model', e.target.value);
+});
+
+// Enter key in prompt triggers generate
+document.getElementById('ai-prompt').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    generateCode();
+  }
+});
+
+const ALMIDE_SYSTEM = `You are an Almide (.almd) code generator. Output ONLY valid .almd source code, no explanations, no markdown fences.
+
+## Grammar (EBNF)
+program     = "module" IDENT import* decl*
+import      = "import" IDENT
+decl        = type_decl | fn_decl
+type_decl   = "type" IDENT "=" "|" variant ("|" variant)* "deriving" "From"
+variant     = IDENT "(" type ("," type)* ")"
+fn_decl     = ["effect"] "fn" IDENT "(" params ")" "->" type "=" expr
+type        = "Int" | "String" | "Bool" | "Unit" | IDENT | IDENT "[" type ("," type)* "]"
+expr        = block | if_expr | match_expr | do_expr | guard | let | var | assign | binary | call | literal
+block       = "{" stmt* expr "}"
+if_expr     = "if" expr "then" expr "else" expr
+match_expr  = "match" expr "{" arm ("," arm)* "}"
+arm         = pattern "=>" expr
+pattern     = "some" "(" pattern ")" | "none" | "ok" "(" pattern ")" | "err" "(" pattern ")" | IDENT | LITERAL | "_"
+do_expr     = "do" "{" (guard | stmt)* "}"
+guard       = "guard" expr "else" expr
+let         = "let" IDENT "=" expr
+var         = "var" IDENT "=" expr
+assign      = IDENT "=" expr
+binary      = expr OP expr    (* OP: + - * / % ^ == != < > <= >= ++ and or *)
+call        = IDENT "(" args ")" | IDENT "." IDENT "(" args ")"
+lambda      = "fn" "(" params ")" "=>" expr
+literal     = INT | STRING | "true" | "false" | "ok" "(" expr ")" | "err" "(" expr ")"
+
+## Stdlib (auto-imported, no import needed)
+string.trim(s) split(s,d) join(xs,d) len(s) pad_left(s,w,c) slice(s,start) to_bytes(s) contains(s,sub) starts_with?(s,p) ends_with?(s,p) replace(s,from,to) to_upper(s) to_lower(s) to_int(s) char_at(s,i)
+list.get(xs,i)->Option len(xs) sort(xs) contains(xs,v) map(xs,f) filter(xs,f) fold(xs,init,f) each(xs,f) find(xs,f)
+int.to_string(n) int.to_hex(n)
+env.unix_timestamp()
+println(s)
+
+## Only fs requires explicit import:
+import fs
+fs.read_text(path) fs.write(path,s) fs.mkdir_p(path) fs.exists?(path) fs.append(path,s)
+
+## Rules
+- No while/for/return/class/null/! — use do+guard for loops, guard for early exit
+- if always requires else
+- ++ for string/list concat, ^ for XOR, "not" for boolean negation
+- effect fn for side-effecting functions
+- String interpolation: "hello \${name}"
+- Always start with: module <name>
+
+## Example
+module app
+
+fn fizzbuzz(n: Int) -> String =
+  if n % 15 == 0 then "FizzBuzz"
+  else if n % 3 == 0 then "Fizz"
+  else if n % 5 == 0 then "Buzz"
+  else int.to_string(n)
+
+effect fn main(args: List[String]) -> Result[Unit, String] = {
+  var i = 1
+  do {
+    guard i <= 100 else ok(())
+    println(fizzbuzz(i))
+    i = i + 1
+  }
+}`;
+
+let abortController = null;
+
+window.generateCode = async function() {
+  const apiKey = document.getElementById('ai-key').value.trim();
+  if (!apiKey) { alert('Please enter your Anthropic API key'); return; }
+
+  const prompt = document.getElementById('ai-prompt').value.trim();
+  if (!prompt) { alert('Please describe what to generate'); return; }
+
+  const model = document.getElementById('ai-model').value;
+  const btn = document.getElementById('ai-btn');
+  const editor = document.getElementById('editor');
+  const statusText = document.getElementById('status-text');
+
+  // If already streaming, abort
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+    btn.textContent = 'Generate';
+    statusText.textContent = 'Cancelled';
+    return;
+  }
+
+  abortController = new AbortController();
+  btn.textContent = 'Stop';
+  editor.value = '';
+  editor.classList.add('ai-streaming');
+  statusText.textContent = 'AI generating...';
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 4096,
+        system: ALMIDE_SYSTEM,
+        stream: true,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: abortController.signal,
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error('API error ' + resp.status + ': ' + err);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(data);
+          if (evt.type === 'content_block_delta' && evt.delta && evt.delta.text) {
+            editor.value += evt.delta.text;
+            editor.scrollTop = editor.scrollHeight;
+          }
+        } catch(e) { /* skip non-JSON lines */ }
+      }
+    }
+
+    statusText.textContent = 'AI generation complete';
+  } catch(e) {
+    if (e.name !== 'AbortError') {
+      statusText.textContent = 'AI error: ' + e.message;
+    }
+  } finally {
+    abortController = null;
+    btn.textContent = 'Generate';
+    editor.classList.remove('ai-streaming');
+  }
+};
 
 function stripRuntimeAndEntry(js) {
   let code = js;
