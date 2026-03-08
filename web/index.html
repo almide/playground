@@ -35,7 +35,7 @@ body { font-family: var(--sans); background: var(--bg-deep); color: var(--text);
 
 header {
   padding: 14px 24px;
-  background: var(--bg-surface);
+  background: #d8d8dc;
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 20px;
 }
@@ -43,18 +43,14 @@ header .logo {
   display: flex; align-items: center; gap: 10px;
 }
 header h1 {
-  font-size: 17px; font-weight: 600; color: var(--text);
+  font-size: 17px; font-weight: 600; color: #1a1a1f;
   letter-spacing: 0.04em;
 }
 header .mark {
-  width: 22px; height: 22px;
-  background: linear-gradient(135deg, #48484f, #28282f);
-  border-radius: 4px;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 13px; color: var(--accent-light);
+  width: 26px; height: 26px;
 }
 header .subtitle {
-  font-size: 12px; color: var(--text-muted);
+  font-size: 12px; color: #606068;
   letter-spacing: 0.02em;
 }
 .actions { margin-left: auto; display: flex; gap: 8px; }
@@ -216,7 +212,7 @@ button.ai:hover:not(:disabled) {
 
 <header>
   <div class="logo">
-    <div class="mark">A</div>
+    <img class="mark" src="almide.svg" alt="A">
     <h1>Almide</h1>
   </div>
   <span class="subtitle">Playground</span>
