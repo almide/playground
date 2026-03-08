@@ -4,80 +4,231 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Almide Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; }
+:root {
+  --bg-deep: #08080a;
+  --bg-surface: #0e0e12;
+  --bg-elevated: #141418;
+  --bg-subtle: #1a1a20;
+  --border: #1e1e26;
+  --border-subtle: #28282f;
+  --text: #e8e6e3;
+  --text-secondary: #8a8a95;
+  --text-muted: #555560;
+  --accent: #8b1a2b;
+  --accent-light: #b8263a;
+  --accent-glow: rgba(139, 26, 43, 0.15);
+  --success: #2d6a4f;
+  --success-text: #95d5b2;
+  --error: #9b2226;
+  --error-text: #e5989b;
+  --warn-text: #dda15e;
+  --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
 
-header { padding: 12px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 16px; }
-header h1 { font-size: 18px; font-weight: 700; color: #a5b4fc; }
-header .subtitle { font-size: 13px; color: #64748b; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--sans); background: var(--bg-deep); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+::selection { background: var(--accent); color: #fff; }
+
+header {
+  padding: 14px 24px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 20px;
+}
+header .logo {
+  display: flex; align-items: center; gap: 10px;
+}
+header h1 {
+  font-size: 17px; font-weight: 600; color: var(--text);
+  letter-spacing: 0.04em;
+}
+header .mark {
+  width: 22px; height: 22px;
+  background: linear-gradient(135deg, #3a3a40, #1a1a1e);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px; color: var(--accent-light);
+}
+header .subtitle {
+  font-size: 12px; color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
 .actions { margin-left: auto; display: flex; gap: 8px; }
-button { padding: 6px 16px; border-radius: 6px; border: 1px solid #475569; background: #334155; color: #e2e8f0; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
-button:hover { background: #475569; }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
-button.primary { background: #4f46e5; border-color: #6366f1; }
-button.primary:hover:not(:disabled) { background: #6366f1; }
-button.ai { background: #7c3aed; border-color: #8b5cf6; }
-button.ai:hover:not(:disabled) { background: #8b5cf6; }
+
+button {
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer; font-size: 12px; font-weight: 500;
+  font-family: var(--sans);
+  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+}
+button:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
+  border-color: #333340;
+}
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button:active { transform: scale(0.98); }
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent-light);
+  color: #f0e8e9;
+}
+button.primary:hover:not(:disabled) {
+  background: var(--accent-light);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+button.ai {
+  background: var(--bg-elevated);
+  border-color: var(--accent);
+  color: var(--accent-light);
+}
+button.ai:hover:not(:disabled) {
+  background: var(--accent);
+  color: #f0e8e9;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
 
 .panels { flex: 1; display: flex; overflow: hidden; }
 .panel { flex: 1; display: flex; flex-direction: column; }
-.panel + .panel { border-left: 1px solid #334155; }
-.panel-header { padding: 8px 16px; background: #1e293b; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
-.panel-header .tab { cursor: pointer; padding: 2px 8px; border-radius: 4px; }
-.panel-header .tab.active { background: #334155; color: #e2e8f0; }
-.panel-header .tab:hover:not(.active) { color: #cbd5e1; }
+.panel + .panel { border-left: 1px solid var(--border); }
+.panel-header {
+  padding: 10px 20px;
+  background: var(--bg-surface);
+  font-size: 11px; font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  display: flex; align-items: center; gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-header .tab {
+  cursor: pointer; padding: 3px 10px; border-radius: 4px;
+  transition: all 0.15s;
+}
+.panel-header .tab.active {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+.panel-header .tab:hover:not(.active) { color: var(--text-secondary); }
 
 .editor-wrap { flex: 1; position: relative; overflow: hidden; }
-.editor-highlight, .editor-wrap textarea { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace; font-size: 13px; line-height: 1.6; border: none; resize: none; tab-size: 2; white-space: pre-wrap; word-wrap: break-word; overflow: auto; margin: 0; }
-.editor-highlight { background: #0f172a; color: #e2e8f0; pointer-events: none; z-index: 0; }
-.editor-wrap textarea { background: transparent; color: transparent; caret-color: #e2e8f0; outline: none; z-index: 1; -webkit-text-fill-color: transparent; }
-.output-area { flex: 1; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace; font-size: 13px; line-height: 1.6; border: none; resize: none; tab-size: 2; }
-.output-area { background: #0f172a; color: #a5f3fc; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.editor-highlight, .editor-wrap textarea {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  padding: 20px;
+  font-family: var(--mono); font-size: 13px; line-height: 1.7;
+  border: none; resize: none; tab-size: 2;
+  white-space: pre-wrap; word-wrap: break-word; overflow: auto; margin: 0;
+}
+.editor-highlight {
+  background: var(--bg-deep); color: var(--text);
+  pointer-events: none; z-index: 0;
+}
+.editor-wrap textarea {
+  background: transparent; color: transparent;
+  caret-color: var(--accent-light);
+  outline: none; z-index: 1;
+  -webkit-text-fill-color: transparent;
+}
 
+.output-area {
+  flex: 1; padding: 20px;
+  font-family: var(--mono); font-size: 13px; line-height: 1.7;
+  border: none; resize: none; tab-size: 2;
+  background: var(--bg-deep); color: var(--text-secondary);
+  overflow: auto; white-space: pre-wrap; word-break: break-word;
+}
 .editor-highlight span { font-family: inherit !important; font-size: inherit !important; line-height: inherit !important; }
-.output-area.error { color: #fca5a5; }
-.output-area.success { color: #86efac; }
+.output-area.error { color: var(--error-text); }
+.output-area.success { color: var(--success-text); }
 
-.status { padding: 4px 16px; background: #1e293b; border-top: 1px solid #334155; font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }
+.status {
+  padding: 5px 24px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-muted);
+  display: flex; justify-content: space-between;
+  letter-spacing: 0.02em;
+}
 
-.ai-bar { display: flex; gap: 8px; padding: 8px 16px; background: #1e293b; border-top: 1px solid #334155; align-items: center; }
-.ai-bar select, .ai-bar input { padding: 5px 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 12px; outline: none; }
-.ai-bar select:focus, .ai-bar input:focus { border-color: #7c3aed; }
+.ai-bar {
+  display: flex; gap: 8px; padding: 10px 24px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  align-items: center;
+}
+.ai-bar select, .ai-bar input {
+  padding: 6px 10px; border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-deep); color: var(--text-secondary);
+  font-size: 12px; font-family: var(--sans); outline: none;
+  transition: border-color 0.2s;
+}
+.ai-bar select:focus, .ai-bar input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
 .ai-bar input[type="password"] { width: 180px; }
 .ai-bar input[type="text"] { flex: 1; }
-.ai-bar label { font-size: 11px; color: #94a3b8; white-space: nowrap; }
-.ai-streaming { animation: pulse 1.5s ease-in-out infinite; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.ai-bar label { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
 
-.repair-log { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.5; }
-.repair-log .log-step { margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #475569; background: #1e293b; }
-.repair-log .log-step.log-error { border-left-color: #ef4444; }
-.repair-log .log-step.log-fix { border-left-color: #f59e0b; }
-.repair-log .log-step.log-ok { border-left-color: #22c55e; }
-.repair-log .log-step.log-fail { border-left-color: #ef4444; background: #1c1917; }
-.repair-log .log-label { font-weight: 600; margin-bottom: 4px; }
-.repair-log .log-error .log-label { color: #fca5a5; }
-.repair-log .log-fix .log-label { color: #fde68a; }
-.repair-log .log-ok .log-label { color: #86efac; }
-.repair-log .log-fail .log-label { color: #fca5a5; }
-.repair-log .log-detail { color: #94a3b8; white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow-y: auto; }
+.ai-streaming { animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Repair log */
+.repair-log { font-family: var(--mono); font-size: 12px; line-height: 1.5; }
+.repair-log .log-step {
+  margin-bottom: 10px; padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 2px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+.repair-log .log-step.log-error { border-left-color: var(--error); }
+.repair-log .log-step.log-fix { border-left-color: var(--warn-text); }
+.repair-log .log-step.log-ok { border-left-color: var(--success); }
+.repair-log .log-step.log-fail { border-left-color: var(--error); background: #120a0a; }
+.repair-log .log-label { font-weight: 500; margin-bottom: 4px; font-size: 11px; letter-spacing: 0.03em; }
+.repair-log .log-error .log-label { color: var(--error-text); }
+.repair-log .log-fix .log-label { color: var(--warn-text); }
+.repair-log .log-ok .log-label { color: var(--success-text); }
+.repair-log .log-fail .log-label { color: var(--error-text); }
+.repair-log .log-detail {
+  color: var(--text-muted); white-space: pre-wrap; word-break: break-word;
+  max-height: 120px; overflow-y: auto; font-size: 11px;
+  margin-top: 4px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #333340; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Almide Playground</h1>
-  <span class="subtitle">Write .almd code — compiled to JS in your browser via WebAssembly</span>
+  <div class="logo">
+    <div class="mark">A</div>
+    <h1>Almide</h1>
+  </div>
+  <span class="subtitle">Playground</span>
   <div class="actions">
-    <button onclick="compileCode()">Compile (JS)</button>
-    <button class="primary" onclick="runCode()">Run ▶</button>
+    <button onclick="compileCode()">Compile</button>
+    <button class="primary" onclick="runCode()">Run</button>
   </div>
 </header>
 
 <div class="panels">
   <div class="panel">
-    <div class="panel-header">Source (.almd)</div>
+    <div class="panel-header">Source</div>
     <div class="editor-wrap">
     <pre class="editor-highlight" id="highlight" aria-hidden="true"></pre>
     <textarea id="editor" spellcheck="false">module app
@@ -101,10 +252,10 @@ effect fn main(args: List[String]) -> Result[Unit, String] = {
   <div class="panel">
     <div class="panel-header">
       <span class="tab active" id="tab-output" onclick="showTab('output')">Output</span>
-      <span class="tab" id="tab-compiled" onclick="showTab('compiled')">Compiled JS</span>
+      <span class="tab" id="tab-compiled" onclick="showTab('compiled')">Compiled</span>
       <span class="tab" id="tab-ast" onclick="showTab('ast')">AST</span>
     </div>
-    <div class="output-area" id="output">Click "Run ▶" to execute your code.</div>
+    <div class="output-area" id="output">Press Run to execute.</div>
     <div class="output-area" id="compiled" style="display:none"></div>
     <div class="output-area" id="ast" style="display:none"></div>
   </div>
@@ -118,13 +269,13 @@ effect fn main(args: List[String]) -> Result[Unit, String] = {
   </select>
   <input type="password" id="ai-key" placeholder="API Key" />
   <select id="ai-model"></select>
-  <input type="text" id="ai-prompt" placeholder="Describe what to code in Almide..." />
+  <input type="text" id="ai-prompt" placeholder="Describe what to generate..." />
   <button class="ai" id="ai-btn" onclick="generateCode()">Generate</button>
 </div>
 
 <div class="status">
   <span id="status-text">Ready</span>
-  <span>Almide Playground — Powered by WebAssembly</span>
+  <span>Almide Playground</span>
 </div>
 
 <script type="module">
@@ -164,10 +315,8 @@ window.onProviderChange = function() {
   const provider = document.getElementById('ai-provider').value;
   localStorage.setItem('almide-ai-provider', provider);
   populateModels(provider);
-  // Restore key for this provider
   const saved = localStorage.getItem('almide-api-key-' + provider);
   document.getElementById('ai-key').value = saved || '';
-  // Update placeholder
   const placeholders = { anthropic: 'sk-ant-...', openai: 'sk-...', gemini: 'AIza...' };
   document.getElementById('ai-key').placeholder = placeholders[provider] || 'API Key';
 };
@@ -176,11 +325,10 @@ async function boot() {
   try {
     await init();
     wasmReady = true;
-    document.getElementById('status-text').textContent = 'Wasm loaded — ready';
+    document.getElementById('status-text').textContent = 'Ready';
   } catch(e) {
-    document.getElementById('status-text').textContent = 'Failed to load Wasm: ' + e;
+    document.getElementById('status-text').textContent = 'Wasm load failed: ' + e;
   }
-  // Restore provider
   const savedProvider = localStorage.getItem('almide-ai-provider') || 'anthropic';
   document.getElementById('ai-provider').value = savedProvider;
   onProviderChange();
@@ -205,7 +353,6 @@ document.getElementById('ai-prompt').addEventListener('keydown', (e) => {
 const ALMIDE_SYSTEM = "You are an Almide (.almd) code generator. Output ONLY valid .almd source code. Do NOT wrap in markdown code fences. No explanations.\n\n## Grammar (EBNF)\nprogram     = \"module\" IDENT import* decl*\nimport      = \"import\" IDENT\ndecl        = type_decl | fn_decl\ntype_decl   = \"type\" IDENT \"=\" \"|\" variant (\"|\" variant)* \"deriving\" \"From\"\nvariant     = IDENT \"(\" type (\",\" type)* \")\"\nfn_decl     = [\"effect\"] \"fn\" IDENT \"(\" params \")\" \"->\" type \"=\" expr\ntype        = \"Int\" | \"String\" | \"Bool\" | \"Unit\" | IDENT | IDENT \"[\" type (\",\" type)* \"]\"\nexpr        = block | if_expr | match_expr | do_expr | guard | let | var | assign | binary | call | literal\nblock       = \"{\" stmt* expr \"}\"\nif_expr     = \"if\" expr \"then\" expr \"else\" expr\nmatch_expr  = \"match\" expr \"{\" arm (\",\" arm)* \"}\"\narm         = pattern \"=>\" expr\npattern     = \"some\" \"(\" pattern \")\" | \"none\" | \"ok\" \"(\" pattern \")\" | \"err\" \"(\" pattern \")\" | IDENT | LITERAL | \"_\"\ndo_expr     = \"do\" \"{\" (guard | stmt)* \"}\"\nguard       = \"guard\" expr \"else\" expr\nlet         = \"let\" IDENT \"=\" expr\nvar         = \"var\" IDENT \"=\" expr\nassign      = IDENT \"=\" expr\nbinary      = expr OP expr    (* OP: + - * / % ^ == != < > <= >= ++ and or *)\ncall        = IDENT \"(\" args \")\" | IDENT \".\" IDENT \"(\" args \")\"\nlambda      = \"fn\" \"(\" params \")\" \"=>\" expr\nliteral     = INT | STRING | \"true\" | \"false\" | \"ok\" \"(\" expr \")\" | \"err\" \"(\" expr \")\"\n\n## Stdlib (auto-imported)\nstring.trim(s) split(s,d) join(xs,d) len(s) pad_left(s,w,c) slice(s,start) to_bytes(s) contains(s,sub) starts_with?(s,p) ends_with?(s,p) replace(s,from,to) to_upper(s) to_lower(s) to_int(s) char_at(s,i)\nlist.get(xs,i)->Option len(xs) sort(xs) contains(xs,v) map(xs,f) filter(xs,f) fold(xs,init,f) each(xs,f) find(xs,f)\nint.to_string(n) int.to_hex(n)\nenv.unix_timestamp()\nprintln(s)\n\n## Only fs needs import:\nimport fs\nfs.read_text(path) fs.write(path,s) fs.mkdir_p(path) fs.exists?(path) fs.append(path,s)\n\n## Rules\n- No while/return/class/null/! — use for...in or do+guard for loops, guard for early exit\n- if always requires else\n- ++ for string/list concat, ^ for XOR, \"not\" for boolean negation\n- effect fn for side-effecting functions\n- String interpolation: \"hello ${name}\"\n- Always start with: module <name>\n- List literal: [1, 2, 3] — NOT list[1, 2, 3]. `list` is a module, not a constructor\n- All stdlib calls need module prefix: list.each(xs, f), NOT each(xs, f)\n- println only takes String. Use int.to_string(n) to print numbers\n- for x in xs { ... } for iterating lists (preferred over do+guard)\n\n## Common mistakes — DO NOT write these:\n- list[1,2,3] → WRONG. Write [1,2,3]\n- each(xs,f) → WRONG. Write list.each(xs,f)\n- map[K,V] as value → WRONG. Write map.new()\n- println(42) → WRONG. Write println(int.to_string(42))\n- 1 :: 2 :: [] → WRONG. Write [1, 2]. No cons operator\n- fn foo[T](x: T) → WRONG. No user-defined generics. Use concrete types\n\n## Example\nmodule app\n\nfn fizzbuzz(n: Int) -> String =\n  if n % 15 == 0 then \"FizzBuzz\"\n  else if n % 3 == 0 then \"Fizz\"\n  else if n % 5 == 0 then \"Buzz\"\n  else int.to_string(n)\n\neffect fn main(args: List[String]) -> Result[Unit, String] = {\n  var i = 1\n  do {\n    guard i <= 100 else ok(())\n    println(fizzbuzz(i))\n    i = i + 1\n  }\n}";
 
 function stripCodeFences(text) {
-  // Remove ```almd\n...\n``` or ```\n...\n``` wrapping
   return text.replace(/^```[\w]*\n?/, '').replace(/\n?```\s*$/, '').trim();
 }
 
@@ -343,7 +490,7 @@ window.generateCode = async function() {
   btn.textContent = 'Stop';
   editor.value = '';
   editor.classList.add('ai-streaming');
-  statusText.textContent = 'AI generating...';
+  statusText.textContent = 'Generating...';
 
   const streamFn = { anthropic: streamAnthropic, openai: streamOpenAI, gemini: streamGemini }[provider];
   const messages = [{ role: 'user', content: prompt }];
@@ -378,7 +525,6 @@ window.generateCode = async function() {
   }
 
   try {
-    // Initial generation
     await streamFn(apiKey, model, messages, abortController.signal, (text) => {
       editor.value += text;
       editor.scrollTop = editor.scrollHeight;
@@ -388,11 +534,10 @@ window.generateCode = async function() {
     syncHighlight();
 
     if (!wasmReady) {
-      statusText.textContent = 'AI generation complete (Wasm not loaded, skipping auto-check)';
+      statusText.textContent = 'Generated (Wasm not loaded)';
       return;
     }
 
-    // Check → Repair loop
     let code = editor.value;
     let result = tryCompileAndRun(code);
     let totalFixes = 0;
@@ -410,7 +555,7 @@ window.generateCode = async function() {
       const phase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
       statusText.textContent = 'Repairing (' + totalFixes + '/' + MAX_REPAIR_ATTEMPTS + ')...';
 
-      repairLog.push({ cls: 'log-fix', label: 'Repair attempt ' + totalFixes + '/' + MAX_REPAIR_ATTEMPTS + ' — fixing ' + phase.toLowerCase() + '...' });
+      repairLog.push({ cls: 'log-fix', label: 'Repair ' + totalFixes + '/' + MAX_REPAIR_ATTEMPTS + ' \u2014 fixing ' + phase.toLowerCase() });
       renderLog();
 
       messages.push({ role: 'assistant', content: code });
@@ -428,17 +573,17 @@ window.generateCode = async function() {
       syncHighlight();
       code = editor.value;
 
-      // Re-check after repair
       result = tryCompileAndRun(code);
 
       if (result.ok) {
-        repairLog.push({ cls: 'log-ok', label: 'Fixed! Compile & run OK' });
+        repairLog.push({ cls: 'log-ok', label: 'Fixed \u2014 compile & run OK' });
       } else {
         const newPhase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
-        const same = result.error === repairLog.find(e => e.cls === 'log-error')?.detail;
+        const prevError = repairLog.filter(e => e.cls === 'log-error').pop();
+        const same = prevError && result.error === prevError.detail;
         repairLog.push({
           cls: 'log-error',
-          label: same ? 'Same error persists' : 'New ' + newPhase.toLowerCase() + ' found',
+          label: same ? 'Same error persists' : 'New ' + newPhase.toLowerCase(),
           detail: result.error,
         });
       }
@@ -448,22 +593,21 @@ window.generateCode = async function() {
     if (result.ok) {
       compiledEl.textContent = result.js;
       compiledEl.className = 'output-area';
-      // Append program output to the log
       if (result.output) {
-        repairLog.push({ cls: 'log-ok', label: 'Program output', detail: result.output });
+        repairLog.push({ cls: 'log-ok', label: 'Output', detail: result.output });
         renderLog();
       }
       statusText.textContent = totalFixes > 0
-        ? 'Auto-repaired (' + totalFixes + ' fix' + (totalFixes > 1 ? 'es' : '') + ') and running'
-        : 'Generated and running';
+        ? 'Repaired (' + totalFixes + ') & running'
+        : 'Running';
     } else {
-      repairLog.push({ cls: 'log-fail', label: 'Gave up after ' + MAX_REPAIR_ATTEMPTS + ' attempts', detail: 'Last error:\n' + result.error });
+      repairLog.push({ cls: 'log-fail', label: 'Failed after ' + MAX_REPAIR_ATTEMPTS + ' attempts', detail: result.error });
       renderLog();
-      statusText.textContent = 'Failed after ' + MAX_REPAIR_ATTEMPTS + ' repair attempts';
+      statusText.textContent = 'Failed';
     }
   } catch(e) {
     if (e.name !== 'AbortError') {
-      statusText.textContent = 'AI error: ' + e.message;
+      statusText.textContent = 'Error: ' + e.message;
     }
   } finally {
     abortController = null;
@@ -598,7 +742,7 @@ function highlightFallback(code) {
   while (i < len) {
     if (code[i] === '/' && code[i+1] === '/') {
       let end = code.indexOf('\n', i); if (end === -1) end = len;
-      out += '<span style="color:#64748b;font-style:italic">' + escapeHtml(code.slice(i, end)) + '</span>';
+      out += '<span style="color:#444450;font-style:italic">' + escapeHtml(code.slice(i, end)) + '</span>';
       i = end; continue;
     }
     if (code[i] === '"') {
@@ -608,19 +752,19 @@ function highlightFallback(code) {
         else { s += code[j]; j++; }
       }
       if (j < len) { s += '"'; j++; }
-      out += '<span style="color:#86efac">' + escapeHtml(s) + '</span>';
+      out += '<span style="color:#5e8a6e">' + escapeHtml(s) + '</span>';
       i = j; continue;
     }
     if (code[i] >= '0' && code[i] <= '9') {
       let j = i;
       while (j < len && ((code[j] >= '0' && code[j] <= '9') || code[j] === '.')) j++;
-      out += '<span style="color:#fdba74">' + escapeHtml(code.slice(i, j)) + '</span>';
+      out += '<span style="color:#b07d5e">' + escapeHtml(code.slice(i, j)) + '</span>';
       i = j; continue;
     }
     if (code[i] >= 'A' && code[i] <= 'Z') {
       let j = i;
       while (j < len && /[a-zA-Z0-9_]/.test(code[j])) j++;
-      out += '<span style="color:#67e8f9">' + escapeHtml(code.slice(i, j)) + '</span>';
+      out += '<span style="color:#8a8a95">' + escapeHtml(code.slice(i, j)) + '</span>';
       i = j; continue;
     }
     if ((code[i] >= 'a' && code[i] <= 'z') || code[i] === '_') {
@@ -628,24 +772,24 @@ function highlightFallback(code) {
       while (j < len && /[a-zA-Z0-9_]/.test(code[j])) j++;
       if (j < len && code[j] === '?') j++;
       const w = code.slice(i, j);
-      if (HL_KEYWORDS.has(w)) out += '<span style="color:#c084fc">' + escapeHtml(w) + '</span>';
-      else if (HL_BOOLS.has(w)) out += '<span style="color:#f9a8d4">' + escapeHtml(w) + '</span>';
-      else if (HL_BUILTINS.has(w) || HL_MODULES.has(w)) out += '<span style="color:#a5b4fc">' + escapeHtml(w) + '</span>';
+      if (HL_KEYWORDS.has(w)) out += '<span style="color:#8b1a2b;font-weight:500">' + escapeHtml(w) + '</span>';
+      else if (HL_BOOLS.has(w)) out += '<span style="color:#b07d5e">' + escapeHtml(w) + '</span>';
+      else if (HL_BUILTINS.has(w) || HL_MODULES.has(w)) out += '<span style="color:#6e6e7a">' + escapeHtml(w) + '</span>';
       else {
         let k = j; while (k < len && code[k] === ' ') k++;
-        if (code[k] === '(') out += '<span style="color:#93c5fd">' + escapeHtml(w) + '</span>';
-        else out += escapeHtml(w);
+        if (code[k] === '(') out += '<span style="color:#c0bfba">' + escapeHtml(w) + '</span>';
+        else out += '<span style="color:#9a9a9a">' + escapeHtml(w) + '</span>';
       }
       i = j; continue;
     }
     if (i+1 < len) {
       const two = code[i] + code[i+1];
       if (['->','=>','|>','==','!=','<=','>=','++'].includes(two)) {
-        out += '<span style="color:#94a3b8">' + escapeHtml(two) + '</span>';
+        out += '<span style="color:#555560">' + escapeHtml(two) + '</span>';
         i += 2; continue;
       }
     }
-    out += escapeHtml(code[i]); i++;
+    out += '<span style="color:#555560">' + escapeHtml(code[i]) + '</span>'; i++;
   }
   if (!code.endsWith('\n')) out += '\n';
   return out;
@@ -657,17 +801,15 @@ async function initShiki() {
     const { createJavaScriptRegexEngine } = await import('https://esm.sh/shiki@3.2.1/engine/javascript');
     const grammarResp = await fetch('./almide.tmLanguage.json');
     const grammar = await grammarResp.json();
-    // Ensure name is lowercase for lang matching
     grammar.name = 'almide';
     shikiHighlighter = await createHighlighterCore({
       themes: [import('https://esm.sh/shiki@3.2.1/themes/tokyo-night.mjs')],
       langs: [grammar],
       engine: createJavaScriptRegexEngine(),
     });
-    console.log('Shiki loaded');
     syncHighlight();
   } catch(e) {
-    console.warn('Shiki init failed, using fallback highlighter:', e);
+    console.warn('Shiki init failed, using fallback:', e);
   }
 }
 
