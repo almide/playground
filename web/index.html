@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Almide Playground</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; }
+
+header { padding: 12px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 16px; }
+header h1 { font-size: 18px; font-weight: 700; color: #a5b4fc; }
+header .subtitle { font-size: 13px; color: #64748b; }
+.actions { margin-left: auto; display: flex; gap: 8px; }
+button { padding: 6px 16px; border-radius: 6px; border: 1px solid #475569; background: #334155; color: #e2e8f0; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+button:hover { background: #475569; }
+button.primary { background: #4f46e5; border-color: #6366f1; }
+button.primary:hover { background: #6366f1; }
+
+.panels { flex: 1; display: flex; overflow: hidden; }
+.panel { flex: 1; display: flex; flex-direction: column; }
+.panel + .panel { border-left: 1px solid #334155; }
+.panel-header { padding: 8px 16px; background: #1e293b; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
+.panel-header .tab { cursor: pointer; padding: 2px 8px; border-radius: 4px; }
+.panel-header .tab.active { background: #334155; color: #e2e8f0; }
+.panel-header .tab:hover:not(.active) { color: #cbd5e1; }
+
+textarea, .output-area { flex: 1; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace; font-size: 13px; line-height: 1.6; border: none; resize: none; tab-size: 2; }
+textarea { background: #0f172a; color: #e2e8f0; outline: none; }
+.output-area { background: #0f172a; color: #a5f3fc; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.output-area.error { color: #fca5a5; }
+.output-area.success { color: #86efac; }
+
+.status { padding: 4px 16px; background: #1e293b; border-top: 1px solid #334155; font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Almide Playground</h1>
+  <span class="subtitle">Write .almd code — compiled to JS in your browser via WebAssembly</span>
+  <div class="actions">
+    <button onclick="compileCode()">Compile (TS)</button>
+    <button class="primary" onclick="runCode()">Run ▶</button>
+  </div>
+</header>
+
+<div class="panels">
+  <div class="panel">
+    <div class="panel-header">Source (.almd)</div>
+    <textarea id="editor" spellcheck="false">module app
+import string
+import list
+import int
+
+fn fizzbuzz(n: Int) -> String =
+  if n % 15 == 0 then "FizzBuzz"
+  else if n % 3 == 0 then "Fizz"
+  else if n % 5 == 0 then "Buzz"
+  else int.to_string(n)
+
+effect fn main(args: List[String]) -> Result[Unit, String] = {
+  var i = 1
+  do {
+    guard i <= 20 else ok(())
+    println(fizzbuzz(i))
+    i = i + 1
+  }
+}</textarea>
+  </div>
+  <div class="panel">
+    <div class="panel-header">
+      <span class="tab active" id="tab-output" onclick="showTab('output')">Output</span>
+      <span class="tab" id="tab-compiled" onclick="showTab('compiled')">Compiled JS</span>
+      <span class="tab" id="tab-ast" onclick="showTab('ast')">AST</span>
+    </div>
+    <div class="output-area" id="output">Click "Run ▶" to execute your code.</div>
+    <div class="output-area" id="compiled" style="display:none"></div>
+    <div class="output-area" id="ast" style="display:none"></div>
+  </div>
+</div>
+
+<div class="status">
+  <span id="status-text">Ready</span>
+  <span>Almide Playground — Powered by WebAssembly</span>
+</div>
+
+<script type="module">
+import init, { compile_to_ts, parse_to_ast } from './pkg/almide_playground.js';
+
+let wasmReady = false;
+
+async function boot() {
+  try {
+    await init();
+    wasmReady = true;
+    document.getElementById('status-text').textContent = 'Wasm loaded — ready';
+  } catch(e) {
+    document.getElementById('status-text').textContent = 'Failed to load Wasm: ' + e;
+  }
+}
+
+// Strip TypeScript type annotations to get runnable JS
+function stripTypes(ts) {
+  let js = ts;
+  // Remove type annotations from function params: (x: Type) -> (x)
+  js = js.replace(/(\w+)\s*:\s*[A-Za-z\[\],\s<>|]+(?=[,\)])/g, '$1');
+  // Remove return type annotations: ) : Type { -> ) {
+  js = js.replace(/\)\s*:\s*[A-Za-z\[\],\s<>|]+\s*\{/g, ') {');
+  // Remove : Type from let/var declarations
+  js = js.replace(/(let|var|const)\s+(\w+)\s*:\s*[A-Za-z\[\],\s<>|]+\s*=/g, '$1 $2 =');
+  return js;
+}
+
+function captureOutput(code) {
+  const lines = [];
+  const fakePrintln = (s) => lines.push(String(s));
+
+  // Build a sandboxed execution environment
+  const wrappedCode = `
+    const println = __println__;
+    const eprintln = __println__;
+    ${code}
+    if (typeof almide_main === 'function') {
+      const result = almide_main(["playground"]);
+    }
+  `;
+
+  try {
+    const fn = new Function('__println__', wrappedCode);
+    fn(fakePrintln);
+  } catch(e) {
+    lines.push('[Runtime Error] ' + e.message);
+  }
+  return lines.join('\n');
+}
+
+window.compileCode = function() {
+  if (!wasmReady) { alert('Wasm not loaded yet'); return; }
+  const source = document.getElementById('editor').value;
+  const start = performance.now();
+  try {
+    const ts = compile_to_ts(source);
+    const elapsed = (performance.now() - start).toFixed(1);
+    document.getElementById('compiled').textContent = ts;
+    document.getElementById('compiled').className = 'output-area';
+    showTab('compiled');
+    document.getElementById('status-text').textContent = `Compiled in ${elapsed}ms`;
+  } catch(e) {
+    document.getElementById('compiled').textContent = String(e);
+    document.getElementById('compiled').className = 'output-area error';
+    showTab('compiled');
+    document.getElementById('status-text').textContent = 'Compilation failed';
+  }
+};
+
+window.runCode = function() {
+  if (!wasmReady) { alert('Wasm not loaded yet'); return; }
+  const source = document.getElementById('editor').value;
+  const start = performance.now();
+  try {
+    const ts = compile_to_ts(source);
+    const js = stripTypes(ts);
+    document.getElementById('compiled').textContent = js;
+    document.getElementById('compiled').className = 'output-area';
+
+    const output = captureOutput(js);
+    const elapsed = (performance.now() - start).toFixed(1);
+    document.getElementById('output').textContent = output || '(no output)';
+    document.getElementById('output').className = 'output-area success';
+    showTab('output');
+    document.getElementById('status-text').textContent = `Ran in ${elapsed}ms`;
+  } catch(e) {
+    document.getElementById('output').textContent = String(e);
+    document.getElementById('output').className = 'output-area error';
+    showTab('output');
+    document.getElementById('status-text').textContent = 'Error';
+  }
+};
+
+window.showTab = function(name) {
+  ['output', 'compiled', 'ast'].forEach(t => {
+    document.getElementById(t).style.display = t === name ? 'block' : 'none';
+    document.getElementById('tab-' + t).className = t === name ? 'tab active' : 'tab';
+  });
+
+  if (name === 'ast' && wasmReady) {
+    const source = document.getElementById('editor').value;
+    try {
+      const ast = parse_to_ast(source);
+      document.getElementById('ast').textContent = ast;
+      document.getElementById('ast').className = 'output-area';
+    } catch(e) {
+      document.getElementById('ast').textContent = String(e);
+      document.getElementById('ast').className = 'output-area error';
+    }
+  }
+};
+
+boot();
+</script>
+
+</body>
+</html>
