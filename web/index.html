@@ -49,9 +49,12 @@ textarea { background: #0f172a; color: #e2e8f0; outline: none; }
   <div class="panel">
     <div class="panel-header">Source (.almd)</div>
     <textarea id="editor" spellcheck="false">module app
+
+import fs
 import string
 import list
 import int
+import env
 
 fn fizzbuzz(n: Int) -> String =
   if n % 15 == 0 then "FizzBuzz"
