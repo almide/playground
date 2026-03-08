@@ -526,7 +526,7 @@ impl TsEmitter {
         // UFCS: expr.method(args) => __module.method(expr, args)
         if let Expr::Member { object, field } = callee {
             if let Expr::Ident { name } = object.as_ref() {
-                let is_module = matches!(name.as_str(), "string" | "list" | "int" | "fs" | "env");
+                let is_module = matches!(name.as_str(), "string" | "list" | "int" | "float" | "fs" | "env");
                 if !is_module {
                     // UFCS: non-module receiver
                     if let Some(module) = Self::resolve_ufcs_module(field) {
@@ -548,7 +548,7 @@ impl TsEmitter {
                 // Non-ident object (e.g. call result, member chain)
                 let module_name = if let Expr::Member { object: inner_obj, .. } = object.as_ref() {
                     if let Expr::Ident { name } = inner_obj.as_ref() {
-                        matches!(name.as_str(), "string" | "list" | "int" | "fs" | "env")
+                        matches!(name.as_str(), "string" | "list" | "int" | "float" | "fs" | "env")
                     } else { false }
                 } else { false };
 
@@ -909,6 +909,7 @@ impl TsEmitter {
             "string" => "__string".to_string(),
             "list" => "__list".to_string(),
             "int" => "__int".to_string(),
+            "float" => "__float".to_string(),
             "env" => "__env".to_string(),
             other => other.to_string(),
         }
