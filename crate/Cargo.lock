@@ -3,9 +3,19 @@
 version = 4
 
 [[package]]
+name = "almide"
+version = "0.1.0"
+source = "git+https://github.com/almide/almide.git?branch=main#87f3971c2d76753f45b7066999e22a2cfdb3b8d2"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "almide-playground"
 version = "0.1.0"
 dependencies = [
+ "almide",
  "serde",
  "serde_json",
  "wasm-bindgen",
