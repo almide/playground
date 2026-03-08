@@ -49,6 +49,19 @@ button.ai:hover:not(:disabled) { background: #8b5cf6; }
 .ai-bar label { font-size: 11px; color: #94a3b8; white-space: nowrap; }
 .ai-streaming { animation: pulse 1.5s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.repair-log { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.5; }
+.repair-log .log-step { margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #475569; background: #1e293b; }
+.repair-log .log-step.log-error { border-left-color: #ef4444; }
+.repair-log .log-step.log-fix { border-left-color: #f59e0b; }
+.repair-log .log-step.log-ok { border-left-color: #22c55e; }
+.repair-log .log-step.log-fail { border-left-color: #ef4444; background: #1c1917; }
+.repair-log .log-label { font-weight: 600; margin-bottom: 4px; }
+.repair-log .log-error .log-label { color: #fca5a5; }
+.repair-log .log-fix .log-label { color: #fde68a; }
+.repair-log .log-ok .log-label { color: #86efac; }
+.repair-log .log-fail .log-label { color: #fca5a5; }
+.repair-log .log-detail { color: #94a3b8; white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow-y: auto; }
 </style>
 </head>
 <body>
@@ -335,6 +348,35 @@ window.generateCode = async function() {
   const streamFn = { anthropic: streamAnthropic, openai: streamOpenAI, gemini: streamGemini }[provider];
   const messages = [{ role: 'user', content: prompt }];
 
+  const outputEl = document.getElementById('output');
+  const compiledEl = document.getElementById('compiled');
+  let repairLog = [];
+
+  function renderLog() {
+    outputEl.className = 'output-area';
+    outputEl.innerHTML = '';
+    const container = document.createElement('div');
+    container.className = 'repair-log';
+    for (const entry of repairLog) {
+      const step = document.createElement('div');
+      step.className = 'log-step ' + entry.cls;
+      const label = document.createElement('div');
+      label.className = 'log-label';
+      label.textContent = entry.label;
+      step.appendChild(label);
+      if (entry.detail) {
+        const detail = document.createElement('div');
+        detail.className = 'log-detail';
+        detail.textContent = entry.detail;
+        step.appendChild(detail);
+      }
+      container.appendChild(step);
+    }
+    outputEl.appendChild(container);
+    outputEl.scrollTop = outputEl.scrollHeight;
+    showTab('output');
+  }
+
   try {
     // Initial generation
     await streamFn(apiKey, model, messages, abortController.signal, (text) => {
@@ -350,13 +392,26 @@ window.generateCode = async function() {
       return;
     }
 
-    // Auto-repair loop
+    // Check → Repair loop
     let code = editor.value;
     let result = tryCompileAndRun(code);
+    let totalFixes = 0;
 
-    for (let attempt = 1; attempt <= MAX_REPAIR_ATTEMPTS && !result.ok; attempt++) {
+    if (result.ok) {
+      repairLog.push({ cls: 'log-ok', label: 'Compile & run OK' });
+    } else {
       const phase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
-      statusText.textContent = 'Repairing ' + phase.toLowerCase() + ' (' + attempt + '/' + MAX_REPAIR_ATTEMPTS + ')...';
+      repairLog.push({ cls: 'log-error', label: phase + ' detected', detail: result.error });
+    }
+    renderLog();
+
+    while (!result.ok && totalFixes < MAX_REPAIR_ATTEMPTS) {
+      totalFixes++;
+      const phase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
+      statusText.textContent = 'Repairing (' + totalFixes + '/' + MAX_REPAIR_ATTEMPTS + ')...';
+
+      repairLog.push({ cls: 'log-fix', label: 'Repair attempt ' + totalFixes + '/' + MAX_REPAIR_ATTEMPTS + ' — fixing ' + phase.toLowerCase() + '...' });
+      renderLog();
 
       messages.push({ role: 'assistant', content: code });
       messages.push({ role: 'user', content:
@@ -372,23 +427,38 @@ window.generateCode = async function() {
       editor.value = stripCodeFences(editor.value);
       syncHighlight();
       code = editor.value;
+
+      // Re-check after repair
       result = tryCompileAndRun(code);
+
+      if (result.ok) {
+        repairLog.push({ cls: 'log-ok', label: 'Fixed! Compile & run OK' });
+      } else {
+        const newPhase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
+        const same = result.error === repairLog.find(e => e.cls === 'log-error')?.detail;
+        repairLog.push({
+          cls: 'log-error',
+          label: same ? 'Same error persists' : 'New ' + newPhase.toLowerCase() + ' found',
+          detail: result.error,
+        });
+      }
+      renderLog();
     }
 
-    const repairs = (messages.length - 1) / 2;
     if (result.ok) {
-      document.getElementById('compiled').textContent = result.js;
-      document.getElementById('compiled').className = 'output-area';
-      document.getElementById('output').textContent = result.output || '(no output)';
-      document.getElementById('output').className = 'output-area success';
-      showTab('output');
-      statusText.textContent = repairs > 1
-        ? 'Auto-repaired (' + (repairs - 1) + ' fix' + (repairs > 2 ? 'es' : '') + ') and running'
+      compiledEl.textContent = result.js;
+      compiledEl.className = 'output-area';
+      // Append program output to the log
+      if (result.output) {
+        repairLog.push({ cls: 'log-ok', label: 'Program output', detail: result.output });
+        renderLog();
+      }
+      statusText.textContent = totalFixes > 0
+        ? 'Auto-repaired (' + totalFixes + ' fix' + (totalFixes > 1 ? 'es' : '') + ') and running'
         : 'Generated and running';
     } else {
-      document.getElementById('output').textContent = result.error;
-      document.getElementById('output').className = 'output-area error';
-      showTab('output');
+      repairLog.push({ cls: 'log-fail', label: 'Gave up after ' + MAX_REPAIR_ATTEMPTS + ' attempts', detail: 'Last error:\n' + result.error });
+      renderLog();
       statusText.textContent = 'Failed after ' + MAX_REPAIR_ATTEMPTS + ' repair attempts';
     }
   } catch(e) {
