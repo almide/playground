@@ -28,10 +28,12 @@ const __string = {
   to_int(s: string): number { const n = parseInt(s, 10); if (isNaN(n)) throw new Error("invalid integer: " + s); return n; },
   replace(s: string, from: string, to: string): string { return s.split(from).join(to); },
   char_at(s: string, i: number): string | null { return i < s.length ? s[i] : null; },
+  lines(s: string): string[] { return s.split("\n").filter(l => l.length > 0); },
 };
 const __list = {
   len<T>(xs: T[]): number { return xs.length; },
   get<T>(xs: T[], i: number): T | null { return i < xs.length ? xs[i] : null; },
+  get_or<T>(xs: T[], i: number, d: T): T { return i < xs.length ? xs[i] : d; },
   sort<T>(xs: T[]): T[] { return [...xs].sort(); },
   contains<T>(xs: T[], x: T): boolean { return xs.includes(x); },
   each<T>(xs: T[], f: (x: T) => void): void { xs.forEach(f); },
@@ -40,9 +42,31 @@ const __list = {
   find<T>(xs: T[], f: (x: T) => boolean): T | null { return xs.find(f) ?? null; },
   fold<T, U>(xs: T[], init: U, f: (acc: U, x: T) => U): U { return xs.reduce(f, init); },
 };
+const __map = {
+  new_<K, V>(): Map<K, V> { return new Map(); },
+  get<K, V>(m: Map<K, V>, k: K): V | null { return m.has(k) ? m.get(k)! : null; },
+  set<K, V>(m: Map<K, V>, k: K, v: V): Map<K, V> { const r = new Map(m); r.set(k, v); return r; },
+  contains<K, V>(m: Map<K, V>, k: K): boolean { return m.has(k); },
+  remove<K, V>(m: Map<K, V>, k: K): Map<K, V> { const r = new Map(m); r.delete(k); return r; },
+  keys<K, V>(m: Map<K, V>): K[] { return [...m.keys()].sort() as any; },
+  values<K, V>(m: Map<K, V>): V[] { return [...m.values()]; },
+  len<K, V>(m: Map<K, V>): number { return m.size; },
+  entries<K, V>(m: Map<K, V>): [K, V][] { return [...m.entries()]; },
+  from_list<T, K, V>(xs: T[], f: (x: T) => [K, V]): Map<K, V> { const r = new Map<K, V>(); for (const x of xs) { const [k, v] = f(x); r.set(k, v); } return r; },
+};
 const __int = {
   to_hex(n: bigint): string { return (n >= 0n ? n : n + (1n << 64n)).toString(16); },
   to_string(n: number): string { return String(n); },
+};
+const __float = {
+  to_string(n: number): string { return String(n); },
+  to_int(n: number): number { return Math.trunc(n); },
+  round(n: number): number { return Math.round(n); },
+  floor(n: number): number { return Math.floor(n); },
+  ceil(n: number): number { return Math.ceil(n); },
+  abs(n: number): number { return Math.abs(n); },
+  sqrt(n: number): number { return Math.sqrt(n); },
+  parse(s: string): number { const n = parseFloat(s); if (isNaN(n)) throw new Error("invalid float: " + s); return n; },
 };
 const __env = {
   unix_timestamp(): number { return Math.floor(Date.now() / 1000); },
@@ -65,6 +89,15 @@ function __bigop(op: string, a: any, b: any): any {
     case "^": return a ^ b; case "*": return a * b; case "%": return a % b;
     case "+": return a + b; case "-": return a - b; default: return a;
   }
+}
+function __div(a: any, b: any): any {
+  if (typeof a === "bigint" || typeof b === "bigint") {
+    const ba = typeof a === "bigint" ? a : BigInt(a);
+    const bb = typeof b === "bigint" ? b : BigInt(b);
+    return ba / bb;
+  }
+  const r = a / b;
+  return (Number.isInteger(a) && Number.isInteger(b)) ? Math.trunc(r) : r;
 }
 function println(s: string): void { console.log(s); }
 function eprintln(s: string): void { console.error(s); }
@@ -123,10 +156,12 @@ const __string = {
   to_int(s) { const n = parseInt(s, 10); if (isNaN(n)) throw new Error("invalid integer: " + s); return n; },
   replace(s, from, to) { return s.split(from).join(to); },
   char_at(s, i) { return i < s.length ? s[i] : null; },
+  lines(s) { return s.split("\n").filter(l => l.length > 0); },
 };
 const __list = {
   len(xs) { return xs.length; },
   get(xs, i) { return i < xs.length ? xs[i] : null; },
+  get_or(xs, i, d) { return i < xs.length ? xs[i] : d; },
   sort(xs) { return [...xs].sort(); },
   contains(xs, x) { return xs.includes(x); },
   each(xs, f) { xs.forEach(f); },
@@ -138,6 +173,28 @@ const __list = {
 const __int = {
   to_hex(n) { return (typeof n === "bigint" ? (n >= 0n ? n : n + (1n << 64n)).toString(16) : n.toString(16)); },
   to_string(n) { return String(n); },
+};
+const __float = {
+  to_string(n) { return String(n); },
+  to_int(n) { return Math.trunc(n); },
+  round(n) { return Math.round(n); },
+  floor(n) { return Math.floor(n); },
+  ceil(n) { return Math.ceil(n); },
+  abs(n) { return Math.abs(n); },
+  sqrt(n) { return Math.sqrt(n); },
+  parse(s) { const n = parseFloat(s); if (isNaN(n)) throw new Error("invalid float: " + s); return n; },
+};
+const __map = {
+  new_() { return new Map(); },
+  get(m, k) { return m.has(k) ? m.get(k) : null; },
+  set(m, k, v) { const r = new Map(m); r.set(k, v); return r; },
+  contains(m, k) { return m.has(k); },
+  remove(m, k) { const r = new Map(m); r.delete(k); return r; },
+  keys(m) { return [...m.keys()].sort(); },
+  values(m) { return [...m.values()]; },
+  len(m) { return m.size; },
+  entries(m) { return [...m.entries()].map(([k, v]) => [k, v]); },
+  from_list(xs, f) { const r = new Map(); for (const x of xs) { const [k, v] = f(x); r.set(k, v); } return r; },
 };
 const __env = {
   unix_timestamp() { return Math.floor(Date.now() / 1000); },
@@ -160,6 +217,15 @@ function __bigop(op, a, b) {
     case "^": return a ^ b; case "*": return a * b; case "%": return a % b;
     case "+": return a + b; case "-": return a - b; default: return a;
   }
+}
+function __div(a, b) {
+  if (typeof a === "bigint" || typeof b === "bigint") {
+    const ba = typeof a === "bigint" ? a : BigInt(a);
+    const bb = typeof b === "bigint" ? b : BigInt(b);
+    return ba / bb;
+  }
+  const r = a / b;
+  return (Number.isInteger(a) && Number.isInteger(b)) ? Math.trunc(r) : r;
 }
 function println(s) { console.log(s); }
 function eprintln(s) { console.error(s); }
@@ -200,13 +266,18 @@ impl TsEmitter {
         Self { out: String::new(), js_mode: false }
     }
 
-    fn emit_program(&mut self, prog: &Program) {
+    fn emit_program(&mut self, prog: &Program, modules: &[(String, Program)]) {
         if self.js_mode {
             self.out.push_str(RUNTIME_JS);
         } else {
             self.out.push_str(RUNTIME);
         }
         self.out.push('\n');
+
+        // Emit imported modules as namespace objects
+        for (mod_name, mod_prog) in modules {
+            self.emit_user_module(mod_name, mod_prog);
+        }
 
         if let Some(module) = &prog.module {
             if let Decl::Module { path } = module {
@@ -233,6 +304,32 @@ impl TsEmitter {
                 self.out.push_str("try { main([\"minigit\", ...Deno.args]); } catch (e) { if (e instanceof Error) { eprintln(e.message); Deno.exit(1); } throw e; }\n");
             }
         }
+    }
+
+    fn emit_user_module(&mut self, name: &str, prog: &Program) {
+        self.out.push_str(&format!("// module: {}\n", name));
+        self.out.push_str(&format!("const {} = (() => {{\n", name));
+
+        for decl in &prog.decls {
+            match decl {
+                Decl::Fn { .. } => {
+                    self.out.push_str(&self.gen_decl(decl));
+                    self.out.push('\n');
+                }
+                Decl::Type { .. } => {
+                    self.out.push_str(&self.gen_decl(decl));
+                    self.out.push('\n');
+                }
+                _ => {}
+            }
+        }
+
+        // Export all functions
+        let fn_names: Vec<&str> = prog.decls.iter().filter_map(|d| {
+            if let Decl::Fn { name, .. } = d { Some(name.as_str()) } else { None }
+        }).collect();
+        self.out.push_str(&format!("  return {{ {} }};\n", fn_names.join(", ")));
+        self.out.push_str("})();\n\n");
     }
 
     fn gen_decl(&self, decl: &Decl) -> String {
@@ -511,11 +608,13 @@ impl TsEmitter {
             // string methods
             "trim" | "split" | "join" | "pad_left" | "starts_with" | "starts_with_qm_"
             | "ends_with_qm_" | "slice" | "to_bytes" | "contains" | "to_upper" | "to_lower"
-            | "to_int" | "replace" | "char_at" => Some("__string"),
+            | "to_int" | "replace" | "char_at" | "lines" => Some("__string"),
             // list methods
-            "get" | "sort" | "each" | "map" | "filter" | "find" | "fold" => Some("__list"),
+            "get" | "get_or" | "sort" | "each" | "map" | "filter" | "find" | "fold" => Some("__list"),
             // int methods
             "to_string" | "to_hex" => Some("__int"),
+            // map methods
+            "keys" | "values" | "entries" => Some("__map"),
             // len / contains are ambiguous — prioritize based on context
             // "len" and "contains" exist in both string and list; handled separately
             _ => None,
@@ -526,7 +625,7 @@ impl TsEmitter {
         // UFCS: expr.method(args) => __module.method(expr, args)
         if let Expr::Member { object, field } = callee {
             if let Expr::Ident { name } = object.as_ref() {
-                let is_module = matches!(name.as_str(), "string" | "list" | "int" | "float" | "fs" | "env");
+                let is_module = matches!(name.as_str(), "string" | "list" | "int" | "float" | "fs" | "env" | "map");
                 if !is_module {
                     // UFCS: non-module receiver
                     if let Some(module) = Self::resolve_ufcs_module(field) {
@@ -602,17 +701,39 @@ impl TsEmitter {
     fn gen_binary(&self, op: &str, left: &Expr, right: &Expr) -> String {
         let l = self.gen_expr(left);
         let r = self.gen_expr(right);
+        let has_float = Self::expr_has_float(left) || Self::expr_has_float(right);
         match op {
             "and" => format!("({} && {})", l, r),
             "or" => format!("({} || {})", l, r),
             "==" => format!("__deep_eq({}, {})", l, r),
             "!=" => format!("!__deep_eq({}, {})", l, r),
             "++" => format!("__concat({}, {})", l, r),
-            "^" => format!("__bigop(\"^\", {}, {})", l, r),
-            "*" => format!("__bigop(\"*\", {}, {})", l, r),
-            "%" => format!("__bigop(\"%\", {}, {})", l, r),
-            "/" => format!("Math.trunc({} / {})", l, r),
+            "^" if !has_float => format!("__bigop(\"^\", {}, {})", l, r),
+            "*" if !has_float => format!("__bigop(\"*\", {}, {})", l, r),
+            "%" if !has_float => format!("__bigop(\"%\", {}, {})", l, r),
+            "/" if !has_float => format!("__div({}, {})", l, r),
             _ => format!("({} {} {})", l, op, r),
+        }
+    }
+
+    /// Check if an expression involves Float values (heuristic for JS codegen).
+    fn expr_has_float(expr: &Expr) -> bool {
+        match expr {
+            Expr::Float { .. } => true,
+            Expr::Binary { left, right, .. } => {
+                Self::expr_has_float(left) || Self::expr_has_float(right)
+            }
+            Expr::Paren { expr: inner } => Self::expr_has_float(inner),
+            Expr::Call { callee, .. } => {
+                // float.xxx() calls return Float
+                if let Expr::Member { object, .. } = callee.as_ref() {
+                    if let Expr::Ident { name } = object.as_ref() {
+                        return name == "float";
+                    }
+                }
+                false
+            }
+            _ => false,
         }
     }
 
@@ -910,6 +1031,7 @@ impl TsEmitter {
             "list" => "__list".to_string(),
             "int" => "__int".to_string(),
             "float" => "__float".to_string(),
+            "map" => "__map".to_string(),
             "env" => "__env".to_string(),
             other => other.to_string(),
         }
@@ -936,14 +1058,22 @@ impl TsEmitter {
 }
 
 pub fn emit(program: &Program) -> String {
+    emit_with_modules(program, &[])
+}
+
+pub fn emit_with_modules(program: &Program, modules: &[(String, Program)]) -> String {
     let mut emitter = TsEmitter::new();
-    emitter.emit_program(program);
+    emitter.emit_program(program, modules);
     emitter.out
 }
 
 pub fn emit_js(program: &Program) -> String {
+    emit_js_with_modules(program, &[])
+}
+
+pub fn emit_js_with_modules(program: &Program, modules: &[(String, Program)]) -> String {
     let mut emitter = TsEmitter::new();
     emitter.js_mode = true;
-    emitter.emit_program(program);
+    emitter.emit_program(program, modules);
     emitter.out
 }
