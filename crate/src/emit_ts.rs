@@ -9,7 +9,7 @@ const __fs = {
   write_bytes(p: string, b: Uint8Array | number[]): void { Deno.writeFileSync(p, b instanceof Uint8Array ? b : new Uint8Array(b)); },
   append(p: string, s: string): void { Deno.writeTextFileSync(p, Deno.readTextFileSync(p) + s); },
   mkdir_p(p: string): void { Deno.mkdirSync(p, { recursive: true }); },
-  exists_q(p: string): boolean { try { Deno.statSync(p); return true; } catch { return false; } },
+  exists_qm_(p: string): boolean { try { Deno.statSync(p); return true; } catch { return false; } },
 };
 const __string = {
   trim(s: string): string { return s.trim(); },
@@ -21,8 +21,8 @@ const __string = {
   slice(s: string, start: number, end?: number): string { return end !== undefined ? s.slice(start, end) : s.slice(start); },
   to_bytes(s: string): number[] { return Array.from(new TextEncoder().encode(s)); },
   contains(s: string, sub: string): boolean { return s.includes(sub); },
-  starts_with_q(s: string, prefix: string): boolean { return s.startsWith(prefix); },
-  ends_with_q(s: string, suffix: string): boolean { return s.endsWith(suffix); },
+  starts_with_qm_(s: string, prefix: string): boolean { return s.startsWith(prefix); },
+  ends_with_qm_(s: string, suffix: string): boolean { return s.endsWith(suffix); },
   to_upper(s: string): string { return s.toUpperCase(); },
   to_lower(s: string): string { return s.toLowerCase(); },
   to_int(s: string): number { const n = parseInt(s, 10); if (isNaN(n)) throw new Error("invalid integer: " + s); return n; },
@@ -104,7 +104,7 @@ const __fs = {
   write_bytes(p, b) { require("fs").writeFileSync(p, Buffer.from(b)); },
   append(p, s) { require("fs").appendFileSync(p, s); },
   mkdir_p(p) { require("fs").mkdirSync(p, { recursive: true }); },
-  exists_q(p) { const fs = require("fs"); try { fs.statSync(p); return true; } catch { return false; } },
+  exists_qm_(p) { const fs = require("fs"); try { fs.statSync(p); return true; } catch { return false; } },
 };
 const __string = {
   trim(s) { return s.trim(); },
@@ -116,8 +116,8 @@ const __string = {
   slice(s, start, end) { return end !== undefined ? s.slice(start, end) : s.slice(start); },
   to_bytes(s) { return Array.from(new TextEncoder().encode(s)); },
   contains(s, sub) { return s.includes(sub); },
-  starts_with_q(s, prefix) { return s.startsWith(prefix); },
-  ends_with_q(s, suffix) { return s.endsWith(suffix); },
+  starts_with_qm_(s, prefix) { return s.startsWith(prefix); },
+  ends_with_qm_(s, suffix) { return s.endsWith(suffix); },
   to_upper(s) { return s.toUpperCase(); },
   to_lower(s) { return s.toLowerCase(); },
   to_int(s) { const n = parseInt(s, 10); if (isNaN(n)) throw new Error("invalid integer: " + s); return n; },
@@ -241,7 +241,12 @@ impl TsEmitter {
             Decl::Import { path, .. } => format!("// import: {}", path.join(".")),
             Decl::Type { name, ty, .. } => {
                 if self.js_mode {
-                    format!("// type: {}", name)
+                    // In JS mode, skip pure type decls but still generate variant constructors
+                    if matches!(ty, TypeExpr::Variant { .. }) {
+                        self.gen_type_decl(name, ty)
+                    } else {
+                        format!("// type: {}", name)
+                    }
                 } else {
                     self.gen_type_decl(name, ty)
                 }
@@ -277,8 +282,36 @@ impl TsEmitter {
                     .collect();
                 format!("interface {} {{\n{}\n}}", name, fs.join("\n"))
             }
-            TypeExpr::Variant { .. } => {
-                format!("// variant type {} (runtime uses tagged objects or strings)", name)
+            TypeExpr::Variant { cases } => {
+                let mut lines = vec![format!("// variant type {}", name)];
+                for case in cases {
+                    match case {
+                        VariantCase::Unit { name: cname } => {
+                            lines.push(format!("function {}() {{ return {{ tag: {} }}; }}", cname, Self::json_string(cname)));
+                        }
+                        VariantCase::Tuple { name: cname, fields } => {
+                            let params: Vec<String> = fields.iter().enumerate()
+                                .map(|(i, _)| format!("_{}", i))
+                                .collect();
+                            let obj_fields: Vec<String> = fields.iter().enumerate()
+                                .map(|(i, _)| format!("_{}: _{}", i, i))
+                                .collect();
+                            lines.push(format!("function {}({}) {{ return {{ tag: {}, {} }}; }}",
+                                cname, params.join(", "), Self::json_string(cname), obj_fields.join(", ")));
+                        }
+                        VariantCase::Record { name: cname, fields } => {
+                            let params: Vec<String> = fields.iter()
+                                .map(|f| f.name.clone())
+                                .collect();
+                            let obj_fields: Vec<String> = fields.iter()
+                                .map(|f| format!("{}: {}", f.name, f.name))
+                                .collect();
+                            lines.push(format!("function {}({}) {{ return {{ tag: {}, {} }}; }}",
+                                cname, params.join(", "), Self::json_string(cname), obj_fields.join(", ")));
+                        }
+                    }
+                }
+                lines.join("\n")
             }
             TypeExpr::Newtype { inner } => {
                 format!("type {} = {} & {{ readonly __brand: \"{}\" }};", name, self.gen_type_expr(inner), name)
@@ -421,6 +454,13 @@ impl TsEmitter {
             Expr::DoBlock { stmts, expr: final_expr } => {
                 self.gen_do_block(stmts, final_expr.as_deref(), 0)
             }
+            Expr::ForIn { var, iterable, body } => {
+                let iter_str = self.gen_expr(iterable);
+                let stmts_str: Vec<String> = body.iter()
+                    .map(|s| format!("  {}", self.gen_stmt(s)))
+                    .collect();
+                format!("for (const {} of {}) {{\n{}\n}}", Self::sanitize(var), iter_str, stmts_str.join("\n"))
+            }
             Expr::Lambda { params, body } => {
                 let ps: Vec<String> = params.iter().map(|p| p.name.clone()).collect();
                 format!("(({}) => {})", ps.join(", "), self.gen_expr(body))
@@ -466,7 +506,69 @@ impl TsEmitter {
         }
     }
 
+    fn resolve_ufcs_module(method: &str) -> Option<&'static str> {
+        match method {
+            // string methods
+            "trim" | "split" | "join" | "pad_left" | "starts_with" | "starts_with_qm_"
+            | "ends_with_qm_" | "slice" | "to_bytes" | "contains" | "to_upper" | "to_lower"
+            | "to_int" | "replace" | "char_at" => Some("__string"),
+            // list methods
+            "get" | "sort" | "each" | "map" | "filter" | "find" | "fold" => Some("__list"),
+            // int methods
+            "to_string" | "to_hex" => Some("__int"),
+            // len / contains are ambiguous — prioritize based on context
+            // "len" and "contains" exist in both string and list; handled separately
+            _ => None,
+        }
+    }
+
     fn gen_call(&self, callee: &Expr, args: &[Expr]) -> String {
+        // UFCS: expr.method(args) => __module.method(expr, args)
+        if let Expr::Member { object, field } = callee {
+            if let Expr::Ident { name } = object.as_ref() {
+                let is_module = matches!(name.as_str(), "string" | "list" | "int" | "fs" | "env");
+                if !is_module {
+                    // UFCS: non-module receiver
+                    if let Some(module) = Self::resolve_ufcs_module(field) {
+                        let obj_str = self.gen_expr(object);
+                        let mut all_args = vec![obj_str];
+                        all_args.extend(args.iter().map(|a| self.gen_expr(a)));
+                        return format!("{}.{}({})", module, Self::sanitize(field), all_args.join(", "));
+                    }
+                    // len/contains: try both, default to list for identifiers
+                    if field == "len" || field == "contains" {
+                        let obj_str = self.gen_expr(object);
+                        let mut all_args = vec![obj_str];
+                        all_args.extend(args.iter().map(|a| self.gen_expr(a)));
+                        // Use list by default for ident receivers; string.len works the same way
+                        return format!("__list.{}({})", Self::sanitize(field), all_args.join(", "));
+                    }
+                }
+            } else {
+                // Non-ident object (e.g. call result, member chain)
+                let module_name = if let Expr::Member { object: inner_obj, .. } = object.as_ref() {
+                    if let Expr::Ident { name } = inner_obj.as_ref() {
+                        matches!(name.as_str(), "string" | "list" | "int" | "fs" | "env")
+                    } else { false }
+                } else { false };
+
+                if !module_name {
+                    if let Some(module) = Self::resolve_ufcs_module(field) {
+                        let obj_str = self.gen_expr(object);
+                        let mut all_args = vec![obj_str];
+                        all_args.extend(args.iter().map(|a| self.gen_expr(a)));
+                        return format!("{}.{}({})", module, Self::sanitize(field), all_args.join(", "));
+                    }
+                    if field == "len" || field == "contains" {
+                        let obj_str = self.gen_expr(object);
+                        let mut all_args = vec![obj_str];
+                        all_args.extend(args.iter().map(|a| self.gen_expr(a)));
+                        return format!("__list.{}({})", Self::sanitize(field), all_args.join(", "));
+                    }
+                }
+            }
+        }
+
         let callee_str = self.gen_expr(callee);
         // Special case: assert_eq(x, err(e))
         if callee_str == "assert_eq" && args.len() == 2 {
@@ -798,7 +900,7 @@ impl TsEmitter {
     }
 
     fn sanitize(name: &str) -> String {
-        name.replace('?', "_q")
+        name.replace('?', "_qm_")
     }
 
     fn map_module(name: &str) -> String {
