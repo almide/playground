@@ -35,16 +35,7 @@ button.ai:hover:not(:disabled) { background: #8b5cf6; }
 .output-area { flex: 1; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace; font-size: 13px; line-height: 1.6; border: none; resize: none; tab-size: 2; }
 .output-area { background: #0f172a; color: #a5f3fc; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 
-.hl-kw { color: #c084fc; }
-.hl-type { color: #67e8f9; }
-.hl-str { color: #86efac; }
-.hl-interp { color: #fbbf24; }
-.hl-num { color: #fdba74; }
-.hl-comment { color: #64748b; font-style: italic; }
-.hl-op { color: #94a3b8; }
-.hl-fn { color: #93c5fd; }
-.hl-bool { color: #f9a8d4; }
-.hl-builtin { color: #a5b4fc; }
+.editor-highlight span { font-family: inherit; font-size: inherit; line-height: inherit; }
 .output-area.error { color: #fca5a5; }
 .output-area.success { color: #86efac; }
 
@@ -444,145 +435,50 @@ window.showTab = function(name) {
   }
 };
 
-// --- Syntax Highlighting ---
+// --- Syntax Highlighting (Shiki + TextMate grammar) ---
 
-const HL_KEYWORDS = new Set([
-  'module','import','type','fn','let','var','if','then','else','match',
-  'effect','do','guard','ok','err','some','none','try','strict','pub',
-  'deriving','test','async','await','newtype','for','in','trait','impl','unsafe',
-]);
-const HL_BOOLS = new Set(['true','false']);
-const HL_LOGIC = new Set(['and','or','not']);
-const HL_BUILTINS = new Set([
-  'println','eprintln','assert','assert_eq','assert_ne','unwrap_or',
-]);
-const HL_MODULES = new Set(['string','list','int','env','fs']);
+let shikiHighlighter = null;
+
+async function initShiki() {
+  try {
+    const { createHighlighterCore } = await import('https://esm.sh/shiki@3.2.1/core');
+    const { createJavaScriptRegexEngine } = await import('https://esm.sh/shiki@3.2.1/engine/javascript');
+    const grammarResp = await fetch('./almide.tmLanguage.json');
+    const grammar = await grammarResp.json();
+    shikiHighlighter = await createHighlighterCore({
+      themes: [import('https://esm.sh/shiki@3.2.1/themes/tokyo-night.mjs')],
+      langs: [grammar],
+      engine: createJavaScriptRegexEngine(),
+    });
+    syncHighlight();
+  } catch(e) {
+    console.warn('Shiki init failed, using fallback:', e);
+  }
+}
 
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function highlightAlmide(code) {
-  let out = '';
-  let i = 0;
-  const len = code.length;
-
-  while (i < len) {
-    // Comments
-    if (code[i] === '/' && code[i+1] === '/') {
-      let end = code.indexOf('\n', i);
-      if (end === -1) end = len;
-      out += '<span class="hl-comment">' + escapeHtml(code.slice(i, end)) + '</span>';
-      i = end;
-      continue;
-    }
-    // Strings
-    if (code[i] === '"') {
-      let j = i + 1;
-      let s = '"';
-      let parts = '';
-      let hasInterp = false;
-      while (j < len && code[j] !== '"') {
-        if (code[j] === '\\' && j + 1 < len) {
-          s += code[j] + code[j+1];
-          j += 2;
-        } else if (code[j] === '$' && code[j+1] === '{') {
-          hasInterp = true;
-          // flush string part
-          parts += '<span class="hl-str">' + escapeHtml(s) + '</span>';
-          s = '';
-          // find matching }
-          let depth = 0;
-          let k = j;
-          while (k < len) {
-            if (code[k] === '{') depth++;
-            else if (code[k] === '}') { depth--; if (depth === 0) break; }
-            k++;
-          }
-          parts += '<span class="hl-interp">' + escapeHtml(code.slice(j, k + 1)) + '</span>';
-          j = k + 1;
-        } else {
-          s += code[j];
-          j++;
-        }
-      }
-      if (j < len) { s += '"'; j++; }
-      if (hasInterp) {
-        if (s.length > 0) parts += '<span class="hl-str">' + escapeHtml(s) + '</span>';
-        out += parts;
-      } else {
-        out += '<span class="hl-str">' + escapeHtml(s) + '</span>';
-      }
-      i = j;
-      continue;
-    }
-    // Numbers
-    if (code[i] >= '0' && code[i] <= '9') {
-      let j = i;
-      while (j < len && ((code[j] >= '0' && code[j] <= '9') || code[j] === '.')) j++;
-      out += '<span class="hl-num">' + escapeHtml(code.slice(i, j)) + '</span>';
-      i = j;
-      continue;
-    }
-    // Type names (uppercase start)
-    if (code[i] >= 'A' && code[i] <= 'Z') {
-      let j = i;
-      while (j < len && /[a-zA-Z0-9_]/.test(code[j])) j++;
-      out += '<span class="hl-type">' + escapeHtml(code.slice(i, j)) + '</span>';
-      i = j;
-      continue;
-    }
-    // Identifiers / keywords
-    if ((code[i] >= 'a' && code[i] <= 'z') || code[i] === '_') {
-      let j = i;
-      while (j < len && /[a-zA-Z0-9_]/.test(code[j])) j++;
-      if (j < len && code[j] === '?') j++;
-      const word = code.slice(i, j);
-      if (HL_KEYWORDS.has(word)) {
-        out += '<span class="hl-kw">' + escapeHtml(word) + '</span>';
-      } else if (HL_BOOLS.has(word)) {
-        out += '<span class="hl-bool">' + escapeHtml(word) + '</span>';
-      } else if (HL_LOGIC.has(word)) {
-        out += '<span class="hl-kw">' + escapeHtml(word) + '</span>';
-      } else if (HL_BUILTINS.has(word)) {
-        out += '<span class="hl-builtin">' + escapeHtml(word) + '</span>';
-      } else if (HL_MODULES.has(word)) {
-        out += '<span class="hl-builtin">' + escapeHtml(word) + '</span>';
-      } else {
-        // Check if it's a function call (next non-space is '(')
-        let k = j;
-        while (k < len && code[k] === ' ') k++;
-        if (code[k] === '(') {
-          out += '<span class="hl-fn">' + escapeHtml(word) + '</span>';
-        } else {
-          out += escapeHtml(word);
-        }
-      }
-      i = j;
-      continue;
-    }
-    // Multi-char operators
-    if (i + 1 < len) {
-      const two = code[i] + code[i+1];
-      if (two === '->' || two === '=>' || two === '|>' || two === '==' || two === '!=' || two === '<=' || two === '>=' || two === '++') {
-        out += '<span class="hl-op">' + escapeHtml(two) + '</span>';
-        i += 2;
-        continue;
-      }
-    }
-    // Single char
-    out += escapeHtml(code[i]);
-    i++;
-  }
-  // Ensure trailing newline for proper sizing
-  if (!code.endsWith('\n')) out += '\n';
-  return out;
-}
-
 function syncHighlight() {
   const editor = document.getElementById('editor');
   const hl = document.getElementById('highlight');
-  hl.innerHTML = highlightAlmide(editor.value);
+  const code = editor.value;
+  if (shikiHighlighter) {
+    try {
+      const html = shikiHighlighter.codeToHtml(code || ' ', {
+        lang: 'almide',
+        theme: 'tokyo-night',
+      });
+      // Extract inner content from shiki's <pre><code>...</code></pre>
+      const match = html.match(/<pre[^>]*><code[^>]*>([\s\S]*)<\/code><\/pre>/);
+      hl.innerHTML = match ? match[1] : escapeHtml(code) + '\n';
+    } catch(e) {
+      hl.innerHTML = escapeHtml(code) + '\n';
+    }
+  } else {
+    hl.innerHTML = escapeHtml(code) + '\n';
+  }
 }
 
 function syncScroll() {
@@ -597,6 +493,7 @@ editor.addEventListener('input', syncHighlight);
 editor.addEventListener('scroll', syncScroll);
 syncHighlight();
 
+initShiki();
 boot();
 </script>
 
