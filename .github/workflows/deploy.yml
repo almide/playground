@@ -3,6 +3,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  repository_dispatch:
+    types: [compiler-updated]
   workflow_dispatch:
 
 permissions:
@@ -36,6 +38,9 @@ jobs:
             ~/.cargo/git
             crate/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('crate/Cargo.lock') }}
+
+      - name: Update almide dependency
+        run: cd crate && cargo update -p almide
 
       - name: Build Wasm
         run: cd crate && wasm-pack build --target web --out-dir ../web/pkg
