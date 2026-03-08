@@ -85,6 +85,7 @@ effect fn main(args: List[String]) -> Result[Unit, String] = {
   <span>Almide Playground — Powered by WebAssembly</span>
 </div>
 
+<script src="https://unpkg.com/sucrase@3.35.0/dist/index.js"></script>
 <script type="module">
 import init, { compile_to_ts, parse_to_ast } from './pkg/almide_playground.js';
 
@@ -100,29 +101,41 @@ async function boot() {
   }
 }
 
-// Strip TypeScript type annotations to get runnable JS
-function stripTypes(ts) {
-  let js = ts;
-  // Remove type annotations from function params: (x: Type) -> (x)
-  js = js.replace(/(\w+)\s*:\s*[A-Za-z\[\],\s<>|]+(?=[,\)])/g, '$1');
-  // Remove return type annotations: ) : Type { -> ) {
-  js = js.replace(/\)\s*:\s*[A-Za-z\[\],\s<>|]+\s*\{/g, ') {');
-  // Remove : Type from let/var declarations
-  js = js.replace(/(let|var|const)\s+(\w+)\s*:\s*[A-Za-z\[\],\s<>|]+\s*=/g, '$1 $2 =');
-  return js;
+function tsToJs(ts) {
+  // Replace Deno-specific entry point and runtime
+  let code = ts;
+  // Remove the Deno entry point line
+  code = code.replace(/\/\/ ---- Entry Point ----[\s\S]*$/, '');
+  // Replace Deno fs calls with browser stubs
+  code = code.replace(/Deno\.statSync\(p\)/g, '(() => { throw new Error("fs not available in browser") })()');
+  code = code.replace(/Deno\.readTextFileSync\(p\)/g, '"(fs not available)"');
+  code = code.replace(/Deno\.writeTextFileSync\([^)]+\)/g, 'undefined');
+  code = code.replace(/Deno\.readFileSync\(p\)/g, 'new Uint8Array()');
+  code = code.replace(/Deno\.writeFileSync\([^)]+\)/g, 'undefined');
+  code = code.replace(/Deno\.mkdirSync\([^)]+\)/g, 'undefined');
+  code = code.replace(/Deno\.args/g, '[]');
+  code = code.replace(/Deno\.exit\(\d+\)/g, 'undefined');
+
+  // Use sucrase to strip TypeScript types
+  const result = self.sucrase.transform(code, {
+    transforms: ['typescript'],
+    disableESTransforms: true,
+  });
+  return result.code;
 }
 
 function captureOutput(code) {
   const lines = [];
   const fakePrintln = (s) => lines.push(String(s));
 
-  // Build a sandboxed execution environment
   const wrappedCode = `
     const println = __println__;
     const eprintln = __println__;
     ${code}
-    if (typeof almide_main === 'function') {
-      const result = almide_main(["playground"]);
+    if (typeof main === 'function') {
+      main(["playground"]);
+    } else if (typeof almide_main === 'function') {
+      almide_main(["playground"]);
     }
   `;
 
@@ -160,7 +173,7 @@ window.runCode = function() {
   const start = performance.now();
   try {
     const ts = compile_to_ts(source);
-    const js = stripTypes(ts);
+    const js = tsToJs(ts);
     document.getElementById('compiled').textContent = js;
     document.getElementById('compiled').className = 'output-area';
 
