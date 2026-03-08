@@ -301,19 +301,66 @@ button.ai:hover:not(:disabled) {
     <pre class="editor-highlight" id="highlight" aria-hidden="true"></pre>
     <textarea id="editor" spellcheck="false">module app
 
+// --- Variant type + pattern matching ---
+type Color =
+  | Red
+  | Green
+  | Blue
+  | Custom(Int, Int, Int)
+
+fn color_name(c: Color) -> String =
+  match c {
+    Red => "Red"
+    Green => "Green"
+    Blue => "Blue"
+    Custom(r, g, b) => "RGB(" ++ int.to_string(r) ++ "," ++ int.to_string(g) ++ "," ++ int.to_string(b) ++ ")"
+  }
+
+// --- Option handling ---
+fn safe_head(xs: List[String]) -> Option[String] =
+  list.get(xs, 0)
+
+fn greet(names: List[String]) -> String =
+  match safe_head(names) {
+    some(name) => "Hello, ${name}!"
+    none => "Hello, World!"
+  }
+
+// --- List ops with lambdas + pipe ---
+fn summarize(nums: List[Int]) -> String = {
+  let total = list.fold(nums, 0, fn(acc, x) => acc + x)
+  let evens = nums
+    |> list.filter(fn(x) => x % 2 == 0)
+    |> list.map(fn(x) => int.to_string(x))
+    |> string.join(", ")
+  "sum=" ++ int.to_string(total) ++ " evens=[" ++ evens ++ "]"
+}
+
+// --- FizzBuzz with if/then/else ---
 fn fizzbuzz(n: Int) -> String =
   if n % 15 == 0 then "FizzBuzz"
   else if n % 3 == 0 then "Fizz"
   else if n % 5 == 0 then "Buzz"
   else int.to_string(n)
 
-effect fn main(args: List[String]) -> Result[Unit, String] = {
-  var i = 1
-  do {
-    guard i <= 20 else ok(())
-    println(fizzbuzz(i))
-    i = i + 1
+// --- Entry point ---
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  // Variant types
+  let colors = [Red, Green, Blue, Custom(255, 128, 0)]
+  for c in colors {
+    println("  " ++ color_name(c))
   }
+
+  // Option
+  println(greet(["Almide"]))
+  println(greet([]))
+
+  // List + pipe + lambda
+  println(summarize([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]))
+
+  // FizzBuzz with for loop
+  let results = list.map([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], fn(i) => fizzbuzz(i))
+  println(string.join(results, " "))
 }</textarea>
     </div>
   </div>
