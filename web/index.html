@@ -8,7 +8,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; }
 
-header { padding: 12px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+header { padding: 12px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 16px; }
 header h1 { font-size: 18px; font-weight: 700; color: #a5b4fc; }
 header .subtitle { font-size: 13px; color: #64748b; }
 .actions { margin-left: auto; display: flex; gap: 8px; }
@@ -36,14 +36,12 @@ textarea { background: #0f172a; color: #e2e8f0; outline: none; }
 
 .status { padding: 4px 16px; background: #1e293b; border-top: 1px solid #334155; font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }
 
-/* AI Panel */
 .ai-bar { display: flex; gap: 8px; padding: 8px 16px; background: #1e293b; border-top: 1px solid #334155; align-items: center; }
-.ai-bar input[type="password"] { width: 200px; padding: 5px 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 12px; outline: none; }
-.ai-bar input[type="password"]:focus { border-color: #7c3aed; }
-.ai-bar input[type="text"] { flex: 1; padding: 5px 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 12px; outline: none; }
-.ai-bar input[type="text"]:focus { border-color: #7c3aed; }
+.ai-bar select, .ai-bar input { padding: 5px 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 12px; outline: none; }
+.ai-bar select:focus, .ai-bar input:focus { border-color: #7c3aed; }
+.ai-bar input[type="password"] { width: 180px; }
+.ai-bar input[type="text"] { flex: 1; }
 .ai-bar label { font-size: 11px; color: #94a3b8; white-space: nowrap; }
-.ai-bar select { padding: 5px 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 12px; outline: none; }
 .ai-streaming { animation: pulse 1.5s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 </style>
@@ -92,13 +90,14 @@ effect fn main(args: List[String]) -> Result[Unit, String] = {
 </div>
 
 <div class="ai-bar">
-  <label>API Key:</label>
-  <input type="password" id="ai-key" placeholder="sk-ant-..." />
-  <select id="ai-model">
-    <option value="claude-sonnet-4-20250514">Sonnet</option>
-    <option value="claude-haiku-4-5-20251001">Haiku</option>
+  <select id="ai-provider" onchange="onProviderChange()">
+    <option value="anthropic">Anthropic</option>
+    <option value="openai">OpenAI</option>
+    <option value="gemini">Gemini</option>
   </select>
-  <input type="text" id="ai-prompt" placeholder="Describe what to code in Almide... (e.g. &quot;fibonacci sequence&quot;)" />
+  <input type="password" id="ai-key" placeholder="API Key" />
+  <select id="ai-model"></select>
+  <input type="text" id="ai-prompt" placeholder="Describe what to code in Almide..." />
   <button class="ai" id="ai-btn" onclick="generateCode()">Generate</button>
 </div>
 
@@ -112,6 +111,46 @@ import init, { compile_to_js, compile_to_ts, parse_to_ast } from './pkg/almide_p
 
 let wasmReady = false;
 
+const MODELS = {
+  anthropic: [
+    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku' },
+  ],
+  openai: [
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o mini' },
+  ],
+  gemini: [
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  ],
+};
+
+function populateModels(provider) {
+  const sel = document.getElementById('ai-model');
+  sel.innerHTML = '';
+  for (const m of MODELS[provider]) {
+    const opt = document.createElement('option');
+    opt.value = m.value;
+    opt.textContent = m.label;
+    sel.appendChild(opt);
+  }
+  const savedModel = localStorage.getItem('almide-ai-model-' + provider);
+  if (savedModel) sel.value = savedModel;
+}
+
+window.onProviderChange = function() {
+  const provider = document.getElementById('ai-provider').value;
+  localStorage.setItem('almide-ai-provider', provider);
+  populateModels(provider);
+  // Restore key for this provider
+  const saved = localStorage.getItem('almide-api-key-' + provider);
+  document.getElementById('ai-key').value = saved || '';
+  // Update placeholder
+  const placeholders = { anthropic: 'sk-ant-...', openai: 'sk-...', gemini: 'AIza...' };
+  document.getElementById('ai-key').placeholder = placeholders[provider] || 'API Key';
+};
+
 async function boot() {
   try {
     await init();
@@ -120,107 +159,136 @@ async function boot() {
   } catch(e) {
     document.getElementById('status-text').textContent = 'Failed to load Wasm: ' + e;
   }
-  // Restore API key from localStorage
-  const saved = localStorage.getItem('almide-api-key');
-  if (saved) document.getElementById('ai-key').value = saved;
-  const savedModel = localStorage.getItem('almide-ai-model');
-  if (savedModel) document.getElementById('ai-model').value = savedModel;
+  // Restore provider
+  const savedProvider = localStorage.getItem('almide-ai-provider') || 'anthropic';
+  document.getElementById('ai-provider').value = savedProvider;
+  onProviderChange();
 }
 
-// Save API key on change
 document.getElementById('ai-key').addEventListener('change', (e) => {
-  localStorage.setItem('almide-api-key', e.target.value);
+  const provider = document.getElementById('ai-provider').value;
+  localStorage.setItem('almide-api-key-' + provider, e.target.value);
 });
 document.getElementById('ai-model').addEventListener('change', (e) => {
-  localStorage.setItem('almide-ai-model', e.target.value);
+  const provider = document.getElementById('ai-provider').value;
+  localStorage.setItem('almide-ai-model-' + provider, e.target.value);
 });
 
-// Enter key in prompt triggers generate
 document.getElementById('ai-prompt').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     generateCode();
   }
 });
 
-const ALMIDE_SYSTEM = `You are an Almide (.almd) code generator. Output ONLY valid .almd source code, no explanations, no markdown fences.
+const ALMIDE_SYSTEM = "You are an Almide (.almd) code generator. Output ONLY valid .almd source code. Do NOT wrap in markdown code fences. No explanations.\n\n## Grammar (EBNF)\nprogram     = \"module\" IDENT import* decl*\nimport      = \"import\" IDENT\ndecl        = type_decl | fn_decl\ntype_decl   = \"type\" IDENT \"=\" \"|\" variant (\"|\" variant)* \"deriving\" \"From\"\nvariant     = IDENT \"(\" type (\",\" type)* \")\"\nfn_decl     = [\"effect\"] \"fn\" IDENT \"(\" params \")\" \"->\" type \"=\" expr\ntype        = \"Int\" | \"String\" | \"Bool\" | \"Unit\" | IDENT | IDENT \"[\" type (\",\" type)* \"]\"\nexpr        = block | if_expr | match_expr | do_expr | guard | let | var | assign | binary | call | literal\nblock       = \"{\" stmt* expr \"}\"\nif_expr     = \"if\" expr \"then\" expr \"else\" expr\nmatch_expr  = \"match\" expr \"{\" arm (\",\" arm)* \"}\"\narm         = pattern \"=>\" expr\npattern     = \"some\" \"(\" pattern \")\" | \"none\" | \"ok\" \"(\" pattern \")\" | \"err\" \"(\" pattern \")\" | IDENT | LITERAL | \"_\"\ndo_expr     = \"do\" \"{\" (guard | stmt)* \"}\"\nguard       = \"guard\" expr \"else\" expr\nlet         = \"let\" IDENT \"=\" expr\nvar         = \"var\" IDENT \"=\" expr\nassign      = IDENT \"=\" expr\nbinary      = expr OP expr    (* OP: + - * / % ^ == != < > <= >= ++ and or *)\ncall        = IDENT \"(\" args \")\" | IDENT \".\" IDENT \"(\" args \")\"\nlambda      = \"fn\" \"(\" params \")\" \"=>\" expr\nliteral     = INT | STRING | \"true\" | \"false\" | \"ok\" \"(\" expr \")\" | \"err\" \"(\" expr \")\"\n\n## Stdlib (auto-imported)\nstring.trim(s) split(s,d) join(xs,d) len(s) pad_left(s,w,c) slice(s,start) to_bytes(s) contains(s,sub) starts_with?(s,p) ends_with?(s,p) replace(s,from,to) to_upper(s) to_lower(s) to_int(s) char_at(s,i)\nlist.get(xs,i)->Option len(xs) sort(xs) contains(xs,v) map(xs,f) filter(xs,f) fold(xs,init,f) each(xs,f) find(xs,f)\nint.to_string(n) int.to_hex(n)\nenv.unix_timestamp()\nprintln(s)\n\n## Only fs needs import:\nimport fs\nfs.read_text(path) fs.write(path,s) fs.mkdir_p(path) fs.exists?(path) fs.append(path,s)\n\n## Rules\n- No while/for/return/class/null/! — use do+guard for loops, guard for early exit\n- if always requires else\n- ++ for string/list concat, ^ for XOR, \"not\" for boolean negation\n- effect fn for side-effecting functions\n- String interpolation: \"hello ${name}\"\n- Always start with: module <name>\n\n## Example\nmodule app\n\nfn fizzbuzz(n: Int) -> String =\n  if n % 15 == 0 then \"FizzBuzz\"\n  else if n % 3 == 0 then \"Fizz\"\n  else if n % 5 == 0 then \"Buzz\"\n  else int.to_string(n)\n\neffect fn main(args: List[String]) -> Result[Unit, String] = {\n  var i = 1\n  do {\n    guard i <= 100 else ok(())\n    println(fizzbuzz(i))\n    i = i + 1\n  }\n}";
 
-## Grammar (EBNF)
-program     = "module" IDENT import* decl*
-import      = "import" IDENT
-decl        = type_decl | fn_decl
-type_decl   = "type" IDENT "=" "|" variant ("|" variant)* "deriving" "From"
-variant     = IDENT "(" type ("," type)* ")"
-fn_decl     = ["effect"] "fn" IDENT "(" params ")" "->" type "=" expr
-type        = "Int" | "String" | "Bool" | "Unit" | IDENT | IDENT "[" type ("," type)* "]"
-expr        = block | if_expr | match_expr | do_expr | guard | let | var | assign | binary | call | literal
-block       = "{" stmt* expr "}"
-if_expr     = "if" expr "then" expr "else" expr
-match_expr  = "match" expr "{" arm ("," arm)* "}"
-arm         = pattern "=>" expr
-pattern     = "some" "(" pattern ")" | "none" | "ok" "(" pattern ")" | "err" "(" pattern ")" | IDENT | LITERAL | "_"
-do_expr     = "do" "{" (guard | stmt)* "}"
-guard       = "guard" expr "else" expr
-let         = "let" IDENT "=" expr
-var         = "var" IDENT "=" expr
-assign      = IDENT "=" expr
-binary      = expr OP expr    (* OP: + - * / % ^ == != < > <= >= ++ and or *)
-call        = IDENT "(" args ")" | IDENT "." IDENT "(" args ")"
-lambda      = "fn" "(" params ")" "=>" expr
-literal     = INT | STRING | "true" | "false" | "ok" "(" expr ")" | "err" "(" expr ")"
-
-## Stdlib (auto-imported, no import needed)
-string.trim(s) split(s,d) join(xs,d) len(s) pad_left(s,w,c) slice(s,start) to_bytes(s) contains(s,sub) starts_with?(s,p) ends_with?(s,p) replace(s,from,to) to_upper(s) to_lower(s) to_int(s) char_at(s,i)
-list.get(xs,i)->Option len(xs) sort(xs) contains(xs,v) map(xs,f) filter(xs,f) fold(xs,init,f) each(xs,f) find(xs,f)
-int.to_string(n) int.to_hex(n)
-env.unix_timestamp()
-println(s)
-
-## Only fs requires explicit import:
-import fs
-fs.read_text(path) fs.write(path,s) fs.mkdir_p(path) fs.exists?(path) fs.append(path,s)
-
-## Rules
-- No while/for/return/class/null/! — use do+guard for loops, guard for early exit
-- if always requires else
-- ++ for string/list concat, ^ for XOR, "not" for boolean negation
-- effect fn for side-effecting functions
-- String interpolation: "hello \${name}"
-- Always start with: module <name>
-
-## Example
-module app
-
-fn fizzbuzz(n: Int) -> String =
-  if n % 15 == 0 then "FizzBuzz"
-  else if n % 3 == 0 then "Fizz"
-  else if n % 5 == 0 then "Buzz"
-  else int.to_string(n)
-
-effect fn main(args: List[String]) -> Result[Unit, String] = {
-  var i = 1
-  do {
-    guard i <= 100 else ok(())
-    println(fizzbuzz(i))
-    i = i + 1
-  }
-}`;
+function stripCodeFences(text) {
+  // Remove ```almd\n...\n``` or ```\n...\n``` wrapping
+  return text.replace(/^```[\w]*\n?/, '').replace(/\n?```\s*$/, '').trim();
+}
 
 let abortController = null;
 
-window.generateCode = async function() {
-  const apiKey = document.getElementById('ai-key').value.trim();
-  if (!apiKey) { alert('Please enter your Anthropic API key'); return; }
+// --- Provider-specific streaming ---
 
+async function streamAnthropic(apiKey, model, prompt, signal, onText) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model, max_tokens: 4096, system: ALMIDE_SYSTEM, stream: true,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+    signal,
+  });
+  if (!resp.ok) throw new Error('API error ' + resp.status + ': ' + (await resp.text()));
+  await readSSE(resp, (evt) => {
+    if (evt.type === 'content_block_delta' && evt.delta && evt.delta.text) {
+      onText(evt.delta.text);
+    }
+  });
+}
+
+async function streamOpenAI(apiKey, model, prompt, signal, onText) {
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey,
+    },
+    body: JSON.stringify({
+      model, max_tokens: 4096, stream: true,
+      messages: [
+        { role: 'system', content: ALMIDE_SYSTEM },
+        { role: 'user', content: prompt },
+      ],
+    }),
+    signal,
+  });
+  if (!resp.ok) throw new Error('API error ' + resp.status + ': ' + (await resp.text()));
+  await readSSE(resp, (evt) => {
+    if (evt.choices && evt.choices[0] && evt.choices[0].delta && evt.choices[0].delta.content) {
+      onText(evt.choices[0].delta.content);
+    }
+  });
+}
+
+async function streamGemini(apiKey, model, prompt, signal, onText) {
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':streamGenerateContent?key=' + apiKey + '&alt=sse';
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: ALMIDE_SYSTEM }] },
+      contents: [{ parts: [{ text: prompt }] }],
+    }),
+    signal,
+  });
+  if (!resp.ok) throw new Error('API error ' + resp.status + ': ' + (await resp.text()));
+  await readSSE(resp, (evt) => {
+    if (evt.candidates && evt.candidates[0] && evt.candidates[0].content) {
+      const parts = evt.candidates[0].content.parts;
+      if (parts) for (const p of parts) { if (p.text) onText(p.text); }
+    }
+  });
+}
+
+async function readSSE(resp, onEvent) {
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[DONE]') continue;
+      try { onEvent(JSON.parse(data)); } catch(e) { /* skip */ }
+    }
+  }
+}
+
+window.generateCode = async function() {
+  const provider = document.getElementById('ai-provider').value;
+  const apiKey = document.getElementById('ai-key').value.trim();
+  if (!apiKey) { alert('Please enter your API key'); return; }
   const prompt = document.getElementById('ai-prompt').value.trim();
   if (!prompt) { alert('Please describe what to generate'); return; }
-
   const model = document.getElementById('ai-model').value;
   const btn = document.getElementById('ai-btn');
   const editor = document.getElementById('editor');
   const statusText = document.getElementById('status-text');
 
-  // If already streaming, abort
   if (abortController) {
     abortController.abort();
     abortController = null;
@@ -236,55 +304,13 @@ window.generateCode = async function() {
   statusText.textContent = 'AI generating...';
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 4096,
-        system: ALMIDE_SYSTEM,
-        stream: true,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      signal: abortController.signal,
+    const streamFn = { anthropic: streamAnthropic, openai: streamOpenAI, gemini: streamGemini }[provider];
+    await streamFn(apiKey, model, prompt, abortController.signal, (text) => {
+      editor.value += text;
+      editor.scrollTop = editor.scrollHeight;
     });
-
-    if (!resp.ok) {
-      const err = await resp.text();
-      throw new Error('API error ' + resp.status + ': ' + err);
-    }
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6);
-        if (data === '[DONE]') continue;
-        try {
-          const evt = JSON.parse(data);
-          if (evt.type === 'content_block_delta' && evt.delta && evt.delta.text) {
-            editor.value += evt.delta.text;
-            editor.scrollTop = editor.scrollHeight;
-          }
-        } catch(e) { /* skip non-JSON lines */ }
-      }
-    }
-
+    // Strip code fences if present
+    editor.value = stripCodeFences(editor.value);
     statusText.textContent = 'AI generation complete';
   } catch(e) {
     if (e.name !== 'AbortError') {
@@ -297,16 +323,14 @@ window.generateCode = async function() {
   }
 };
 
+// --- Compiler / Runner ---
+
 function stripRuntimeAndEntry(js) {
   let code = js;
   const endRuntime = code.indexOf('// ---- End Runtime ----');
-  if (endRuntime !== -1) {
-    code = code.substring(endRuntime + '// ---- End Runtime ----'.length);
-  }
+  if (endRuntime !== -1) code = code.substring(endRuntime + '// ---- End Runtime ----'.length);
   const entryPoint = code.indexOf('// ---- Entry Point ----');
-  if (entryPoint !== -1) {
-    code = code.substring(0, entryPoint);
-  }
+  if (entryPoint !== -1) code = code.substring(0, entryPoint);
   return code;
 }
 
@@ -314,7 +338,6 @@ function captureOutput(js) {
   const lines = [];
   const fakePrintln = (s) => lines.push(String(s));
   const userCode = stripRuntimeAndEntry(js);
-
   const wrappedCode = [
     'const println = __println__;',
     'const eprintln = __println__;',
@@ -334,7 +357,6 @@ function captureOutput(js) {
     userCode,
     'if (typeof main === "function") { main(["playground"]); }',
   ].join('\n');
-
   try {
     const fn = new Function('__println__', wrappedCode);
     fn(fakePrintln);
@@ -371,7 +393,6 @@ window.runCode = function() {
     const js = compile_to_js(source);
     document.getElementById('compiled').textContent = js;
     document.getElementById('compiled').className = 'output-area';
-
     const output = captureOutput(js);
     const elapsed = (performance.now() - start).toFixed(1);
     document.getElementById('output').textContent = output || '(no output)';
@@ -391,7 +412,6 @@ window.showTab = function(name) {
     document.getElementById(t).style.display = t === name ? 'block' : 'none';
     document.getElementById('tab-' + t).className = t === name ? 'tab active' : 'tab';
   });
-
   if (name === 'ast' && wasmReady) {
     const source = document.getElementById('editor').value;
     try {
