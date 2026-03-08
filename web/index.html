@@ -279,7 +279,7 @@ effect fn main(args: List[String]) -> Result[Unit, String] = {
 </div>
 
 <div class="status">
-  <span id="status-text">Ready</span>
+  <span id="status-text">Your API key is never sent to external servers.</span>
   <span>Almide Playground</span>
 </div>
 
@@ -330,7 +330,7 @@ async function boot() {
   try {
     await init();
     wasmReady = true;
-    document.getElementById('status-text').textContent = 'Ready';
+    document.getElementById('status-text').textContent = 'Your API key is never sent to external servers.';
   } catch(e) {
     document.getElementById('status-text').textContent = 'Wasm load failed: ' + e;
   }
