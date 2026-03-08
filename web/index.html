@@ -200,7 +200,7 @@ let abortController = null;
 
 // --- Provider-specific streaming ---
 
-async function streamAnthropic(apiKey, model, prompt, signal, onText) {
+async function streamAnthropic(apiKey, model, messages, signal, onText) {
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -211,7 +211,7 @@ async function streamAnthropic(apiKey, model, prompt, signal, onText) {
     },
     body: JSON.stringify({
       model, max_tokens: 4096, system: ALMIDE_SYSTEM, stream: true,
-      messages: [{ role: 'user', content: prompt }],
+      messages,
     }),
     signal,
   });
@@ -223,7 +223,7 @@ async function streamAnthropic(apiKey, model, prompt, signal, onText) {
   });
 }
 
-async function streamOpenAI(apiKey, model, prompt, signal, onText) {
+async function streamOpenAI(apiKey, model, messages, signal, onText) {
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -234,7 +234,7 @@ async function streamOpenAI(apiKey, model, prompt, signal, onText) {
       model, max_tokens: 4096, stream: true,
       messages: [
         { role: 'system', content: ALMIDE_SYSTEM },
-        { role: 'user', content: prompt },
+        ...messages,
       ],
     }),
     signal,
@@ -247,14 +247,18 @@ async function streamOpenAI(apiKey, model, prompt, signal, onText) {
   });
 }
 
-async function streamGemini(apiKey, model, prompt, signal, onText) {
+async function streamGemini(apiKey, model, messages, signal, onText) {
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':streamGenerateContent?key=' + apiKey + '&alt=sse';
+  const contents = messages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       system_instruction: { parts: [{ text: ALMIDE_SYSTEM }] },
-      contents: [{ parts: [{ text: prompt }] }],
+      contents,
     }),
     signal,
   });
@@ -286,6 +290,23 @@ async function readSSE(resp, onEvent) {
   }
 }
 
+const MAX_REPAIR_ATTEMPTS = 3;
+
+function tryCompileAndRun(source) {
+  let js;
+  try {
+    js = compile_to_js(source);
+  } catch(e) {
+    return { ok: false, error: String(e), phase: 'compile' };
+  }
+  try {
+    const output = captureOutput(js);
+    return { ok: true, js, output };
+  } catch(e) {
+    return { ok: false, error: String(e), js, phase: 'runtime' };
+  }
+}
+
 window.generateCode = async function() {
   const provider = document.getElementById('ai-provider').value;
   const apiKey = document.getElementById('ai-key').value.trim();
@@ -311,17 +332,65 @@ window.generateCode = async function() {
   editor.classList.add('ai-streaming');
   statusText.textContent = 'AI generating...';
 
+  const streamFn = { anthropic: streamAnthropic, openai: streamOpenAI, gemini: streamGemini }[provider];
+  const messages = [{ role: 'user', content: prompt }];
+
   try {
-    const streamFn = { anthropic: streamAnthropic, openai: streamOpenAI, gemini: streamGemini }[provider];
-    await streamFn(apiKey, model, prompt, abortController.signal, (text) => {
+    // Initial generation
+    await streamFn(apiKey, model, messages, abortController.signal, (text) => {
       editor.value += text;
       editor.scrollTop = editor.scrollHeight;
       syncHighlight();
     });
-    // Strip code fences if present
     editor.value = stripCodeFences(editor.value);
     syncHighlight();
-    statusText.textContent = 'AI generation complete';
+
+    if (!wasmReady) {
+      statusText.textContent = 'AI generation complete (Wasm not loaded, skipping auto-check)';
+      return;
+    }
+
+    // Auto-repair loop
+    let code = editor.value;
+    let result = tryCompileAndRun(code);
+
+    for (let attempt = 1; attempt <= MAX_REPAIR_ATTEMPTS && !result.ok; attempt++) {
+      const phase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
+      statusText.textContent = 'Repairing ' + phase.toLowerCase() + ' (' + attempt + '/' + MAX_REPAIR_ATTEMPTS + ')...';
+
+      messages.push({ role: 'assistant', content: code });
+      messages.push({ role: 'user', content:
+        phase + ':\n' + result.error + '\n\nFix the code and output ONLY the corrected .almd source. No explanations.'
+      });
+
+      editor.value = '';
+      await streamFn(apiKey, model, messages, abortController.signal, (text) => {
+        editor.value += text;
+        editor.scrollTop = editor.scrollHeight;
+        syncHighlight();
+      });
+      editor.value = stripCodeFences(editor.value);
+      syncHighlight();
+      code = editor.value;
+      result = tryCompileAndRun(code);
+    }
+
+    const repairs = (messages.length - 1) / 2;
+    if (result.ok) {
+      document.getElementById('compiled').textContent = result.js;
+      document.getElementById('compiled').className = 'output-area';
+      document.getElementById('output').textContent = result.output || '(no output)';
+      document.getElementById('output').className = 'output-area success';
+      showTab('output');
+      statusText.textContent = repairs > 1
+        ? 'Auto-repaired (' + (repairs - 1) + ' fix' + (repairs > 2 ? 'es' : '') + ') and running'
+        : 'Generated and running';
+    } else {
+      document.getElementById('output').textContent = result.error;
+      document.getElementById('output').className = 'output-area error';
+      showTab('output');
+      statusText.textContent = 'Failed after ' + MAX_REPAIR_ATTEMPTS + ' repair attempts';
+    }
   } catch(e) {
     if (e.name !== 'AbortError') {
       statusText.textContent = 'AI error: ' + e.message;
