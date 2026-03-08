@@ -40,7 +40,7 @@ textarea { background: #0f172a; color: #e2e8f0; outline: none; }
   <h1>Almide Playground</h1>
   <span class="subtitle">Write .almd code — compiled to JS in your browser via WebAssembly</span>
   <div class="actions">
-    <button onclick="compileCode()">Compile (TS)</button>
+    <button onclick="compileCode()">Compile (JS)</button>
     <button class="primary" onclick="runCode()">Run ▶</button>
   </div>
 </header>
@@ -83,7 +83,7 @@ effect fn main(args: List[String]) -> Result[Unit, String] = {
 </div>
 
 <script type="module">
-import init, { compile_to_ts, parse_to_ast } from './pkg/almide_playground.js';
+import init, { compile_to_js, compile_to_ts, parse_to_ast } from './pkg/almide_playground.js';
 
 let wasmReady = false;
 
@@ -97,129 +97,43 @@ async function boot() {
   }
 }
 
-// Browser-compatible JS runtime (no types, no Deno)
-const BROWSER_RUNTIME = `
-const __fs = {
-  exists(p) { throw new Error("fs not available in browser"); },
-  read_text(p) { throw new Error("fs not available in browser"); },
-  read_bytes(p) { throw new Error("fs not available in browser"); },
-  write(p, s) { throw new Error("fs not available in browser"); },
-  write_bytes(p, b) { throw new Error("fs not available in browser"); },
-  append(p, s) { throw new Error("fs not available in browser"); },
-  mkdir_p(p) { throw new Error("fs not available in browser"); },
-  exists_q(p) { throw new Error("fs not available in browser"); },
-};
-const __string = {
-  trim(s) { return s.trim(); },
-  split(s, sep) { return s.split(sep); },
-  join(arr, sep) { return arr.join(sep); },
-  len(s) { return s.length; },
-  pad_left(s, n, ch) { return s.padStart(n, ch); },
-  starts_with(s, prefix) { return s.startsWith(prefix); },
-  slice(s, start, end) { return end !== undefined ? s.slice(start, end) : s.slice(start); },
-  to_bytes(s) { return Array.from(new TextEncoder().encode(s)); },
-  contains(s, sub) { return s.includes(sub); },
-  starts_with_q(s, prefix) { return s.startsWith(prefix); },
-  ends_with_q(s, suffix) { return s.endsWith(suffix); },
-  to_upper(s) { return s.toUpperCase(); },
-  to_lower(s) { return s.toLowerCase(); },
-  to_int(s) { const n = parseInt(s, 10); if (isNaN(n)) throw new Error("invalid integer: " + s); return n; },
-  replace(s, from, to) { return s.split(from).join(to); },
-  char_at(s, i) { return i < s.length ? s[i] : null; },
-};
-const __list = {
-  len(xs) { return xs.length; },
-  get(xs, i) { return i < xs.length ? xs[i] : null; },
-  sort(xs) { return [...xs].sort(); },
-  contains(xs, x) { return xs.includes(x); },
-  each(xs, f) { xs.forEach(f); },
-  map(xs, f) { return xs.map(f); },
-  filter(xs, f) { return xs.filter(f); },
-  find(xs, f) { return xs.find(f) ?? null; },
-  fold(xs, init, f) { return xs.reduce(f, init); },
-};
-const __int = {
-  to_hex(n) { return (typeof n === "bigint" ? (n >= 0n ? n : n + (1n << 64n)).toString(16) : n.toString(16)); },
-  to_string(n) { return String(n); },
-};
-const __env = {
-  unix_timestamp() { return Math.floor(Date.now() / 1000); },
-  args() { return []; },
-};
-function __bigop(op, a, b) {
-  if (typeof a === "bigint" || typeof b === "bigint") {
-    const ba = typeof a === "bigint" ? a : BigInt(a);
-    const bb = typeof b === "bigint" ? b : BigInt(b);
-    switch(op) {
-      case "^": return ba ^ bb; case "*": return ba * bb; case "%": return ba % bb;
-      case "+": return ba + bb; case "-": return ba - bb; default: return ba;
-    }
-  }
-  switch(op) {
-    case "^": return a ^ b; case "*": return a * b; case "%": return a % b;
-    case "+": return a + b; case "-": return a - b; default: return a;
-  }
-}
-function __deep_eq(a, b) {
-  if (a === b) return true;
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) { if (!__deep_eq(a[i], b[i])) return false; }
-    return true;
-  }
-  if (a && b && typeof a === "object" && typeof b === "object") {
-    const ka = Object.keys(a), kb = Object.keys(b);
-    if (ka.length !== kb.length) return false;
-    for (const k of ka) { if (!__deep_eq(a[k], b[k])) return false; }
-    return true;
-  }
-  return false;
-}
-function assert_eq(a, b) { if (!__deep_eq(a, b)) throw new Error("assert_eq: " + JSON.stringify(a) + " !== " + JSON.stringify(b)); }
-function assert_ne(a, b) { if (a === b) throw new Error("assert_ne: " + a + " === " + b); }
-function assert(c) { if (!c) throw new Error("assertion failed"); }
-function unwrap_or(x, d) { return x !== null ? x : d; }
-function __concat(a, b) { return typeof a === "string" ? a + b : [...a, ...b]; }
-`;
-
-function tsToJs(ts) {
-  // Extract only the user code (after "// ---- End Runtime ----", before "// ---- Entry Point ----")
-  let userCode = ts;
-  const endRuntime = userCode.indexOf('// ---- End Runtime ----');
+function stripRuntimeAndEntry(js) {
+  let code = js;
+  const endRuntime = code.indexOf('// ---- End Runtime ----');
   if (endRuntime !== -1) {
-    userCode = userCode.substring(endRuntime + '// ---- End Runtime ----'.length);
+    code = code.substring(endRuntime + '// ---- End Runtime ----'.length);
   }
-  const entryPoint = userCode.indexOf('// ---- Entry Point ----');
+  const entryPoint = code.indexOf('// ---- Entry Point ----');
   if (entryPoint !== -1) {
-    userCode = userCode.substring(0, entryPoint);
+    code = code.substring(0, entryPoint);
   }
-
-  // Strip type annotations from user code with regex
-  // function name(x: type, y: type): rettype { → function name(x, y) {
-  userCode = userCode.replace(/function\s+(\w+)\s*\(([^)]*)\)\s*:\s*\w+[^{]*\{/g, (match, name, params) => {
-    const cleanParams = params.replace(/(\w+)\s*:\s*[^,)]+/g, '$1');
-    return `function ${name}(${cleanParams}) {`;
-  });
-  // let/var x: type = → let/var x =
-  userCode = userCode.replace(/(let|var|const)\s+(\w+)\s*:\s*[^=]+=\s*/g, '$1 $2 = ');
-
-  return BROWSER_RUNTIME + userCode;
+  return code;
 }
 
-function captureOutput(code) {
+function captureOutput(js) {
   const lines = [];
   const fakePrintln = (s) => lines.push(String(s));
+  const userCode = stripRuntimeAndEntry(js);
 
-  const wrappedCode = `
-    const println = __println__;
-    const eprintln = __println__;
-    ${code}
-    if (typeof main === 'function') {
-      main(["playground"]);
-    } else if (typeof almide_main === 'function') {
-      almide_main(["playground"]);
-    }
-  `;
+  const wrappedCode = [
+    'const println = __println__;',
+    'const eprintln = __println__;',
+    'const __fs = { exists(p){throw new Error("fs not available in browser")}, read_text(p){throw new Error("fs not available in browser")}, read_bytes(p){throw new Error("fs not available in browser")}, write(p,s){throw new Error("fs not available in browser")}, write_bytes(p,b){throw new Error("fs not available in browser")}, append(p,s){throw new Error("fs not available in browser")}, mkdir_p(p){throw new Error("fs not available in browser")}, exists_q(p){throw new Error("fs not available in browser")} };',
+    'const __string = { trim(s){return s.trim()}, split(s,sep){return s.split(sep)}, join(arr,sep){return arr.join(sep)}, len(s){return s.length}, pad_left(s,n,ch){return s.padStart(n,ch)}, starts_with(s,prefix){return s.startsWith(prefix)}, slice(s,start,end){return end!==undefined?s.slice(start,end):s.slice(start)}, to_bytes(s){return Array.from(new TextEncoder().encode(s))}, contains(s,sub){return s.includes(sub)}, starts_with_q(s,prefix){return s.startsWith(prefix)}, ends_with_q(s,suffix){return s.endsWith(suffix)}, to_upper(s){return s.toUpperCase()}, to_lower(s){return s.toLowerCase()}, to_int(s){const n=parseInt(s,10);if(isNaN(n))throw new Error("invalid integer: "+s);return n}, replace(s,from,to){return s.split(from).join(to)}, char_at(s,i){return i<s.length?s[i]:null} };',
+    'const __list = { len(xs){return xs.length}, get(xs,i){return i<xs.length?xs[i]:null}, sort(xs){return[...xs].sort()}, contains(xs,x){return xs.includes(x)}, each(xs,f){xs.forEach(f)}, map(xs,f){return xs.map(f)}, filter(xs,f){return xs.filter(f)}, find(xs,f){return xs.find(f)??null}, fold(xs,init,f){return xs.reduce(f,init)} };',
+    'const __int = { to_hex(n){return(typeof n==="bigint"?(n>=0n?n:n+(1n<<64n)).toString(16):n.toString(16))}, to_string(n){return String(n)} };',
+    'const __env = { unix_timestamp(){return Math.floor(Date.now()/1000)}, args(){return[]} };',
+    'function __bigop(op,a,b){if(typeof a==="bigint"||typeof b==="bigint"){const ba=typeof a==="bigint"?a:BigInt(a);const bb=typeof b==="bigint"?b:BigInt(b);switch(op){case"^":return ba^bb;case"*":return ba*bb;case"%":return ba%bb;case"+":return ba+bb;case"-":return ba-bb;default:return ba}}switch(op){case"^":return a^b;case"*":return a*b;case"%":return a%b;case"+":return a+b;case"-":return a-b;default:return a}}',
+    'function __deep_eq(a,b){if(a===b)return true;if(Array.isArray(a)&&Array.isArray(b)){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++){if(!__deep_eq(a[i],b[i]))return false}return true}if(a&&b&&typeof a==="object"&&typeof b==="object"){const ka=Object.keys(a),kb=Object.keys(b);if(ka.length!==kb.length)return false;for(const k of ka){if(!__deep_eq(a[k],b[k]))return false}return true}return false}',
+    'function assert_eq(a,b){if(!__deep_eq(a,b))throw new Error("assert_eq: "+JSON.stringify(a)+" !== "+JSON.stringify(b))}',
+    'function assert_ne(a,b){if(a===b)throw new Error("assert_ne: "+a+" === "+b)}',
+    'function assert(c){if(!c)throw new Error("assertion failed")}',
+    'function unwrap_or(x,d){return x!==null?x:d}',
+    'function __concat(a,b){return typeof a==="string"?a+b:[...a,...b]}',
+    'function __assert_throws(fn,expectedMsg){try{fn();throw new Error("Expected error")}catch(e){if(e instanceof Error&&e.message===expectedMsg)return;throw e}}',
+    userCode,
+    'if (typeof main === "function") { main(["playground"]); }',
+  ].join('\n');
 
   try {
     const fn = new Function('__println__', wrappedCode);
@@ -235,12 +149,12 @@ window.compileCode = function() {
   const source = document.getElementById('editor').value;
   const start = performance.now();
   try {
-    const ts = compile_to_ts(source);
+    const js = compile_to_js(source);
     const elapsed = (performance.now() - start).toFixed(1);
-    document.getElementById('compiled').textContent = ts;
+    document.getElementById('compiled').textContent = js;
     document.getElementById('compiled').className = 'output-area';
     showTab('compiled');
-    document.getElementById('status-text').textContent = `Compiled in ${elapsed}ms`;
+    document.getElementById('status-text').textContent = 'Compiled in ' + elapsed + 'ms';
   } catch(e) {
     document.getElementById('compiled').textContent = String(e);
     document.getElementById('compiled').className = 'output-area error';
@@ -254,8 +168,7 @@ window.runCode = function() {
   const source = document.getElementById('editor').value;
   const start = performance.now();
   try {
-    const ts = compile_to_ts(source);
-    const js = tsToJs(ts);
+    const js = compile_to_js(source);
     document.getElementById('compiled').textContent = js;
     document.getElementById('compiled').className = 'output-area';
 
@@ -264,7 +177,7 @@ window.runCode = function() {
     document.getElementById('output').textContent = output || '(no output)';
     document.getElementById('output').className = 'output-area success';
     showTab('output');
-    document.getElementById('status-text').textContent = `Ran in ${elapsed}ms`;
+    document.getElementById('status-text').textContent = 'Ran in ' + elapsed + 'ms';
   } catch(e) {
     document.getElementById('output').textContent = String(e);
     document.getElementById('output').className = 'output-area error';
