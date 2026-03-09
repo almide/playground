@@ -1053,19 +1053,55 @@ function highlightFallback(code) {
   let out = '', i = 0;
   const len = code.length;
   while (i < len) {
+    if (code[i] === '(' && code[i+1] === '*') {
+      let j = i + 2, depth = 1;
+      while (j < len && depth > 0) {
+        if (code[j] === '(' && code[j+1] === '*') { depth++; j += 2; }
+        else if (code[j] === '*' && code[j+1] === ')') { depth--; j += 2; }
+        else j++;
+      }
+      out += '<span style="color:#565f89;font-style:italic">' + escapeHtml(code.slice(i, j)) + '</span>';
+      i = j; continue;
+    }
     if (code[i] === '/' && code[i+1] === '/') {
       let end = code.indexOf('\n', i); if (end === -1) end = len;
       out += '<span style="color:#565f89;font-style:italic">' + escapeHtml(code.slice(i, end)) + '</span>';
       i = end; continue;
     }
+    if (code[i] === 'r' && code[i+1] === '"') {
+      // Raw string: r"..." — no interpolation, no escape processing
+      let j = i + 2;
+      while (j < len && code[j] !== '"') j++;
+      if (j < len) j++;
+      out += '<span style="color:#9ece6a">' + escapeHtml(code.slice(i, j)) + '</span>';
+      i = j; continue;
+    }
     if (code[i] === '"') {
-      let j = i + 1, s = '"';
+      // Regular string with ${...} interpolation support
+      let j = i + 1;
+      out += '<span style="color:#9ece6a">&quot;</span>';
       while (j < len && code[j] !== '"') {
-        if (code[j] === '\\' && j+1 < len) { s += code[j] + code[j+1]; j += 2; }
-        else { s += code[j]; j++; }
+        if (code[j] === '\\' && j+1 < len) {
+          out += '<span style="color:#9ece6a">' + escapeHtml(code[j] + code[j+1]) + '</span>';
+          j += 2;
+        } else if (code[j] === '$' && code[j+1] === '{') {
+          out += '<span style="color:#7dcfff">${</span>';
+          j += 2;
+          let depth = 1;
+          let expr = '';
+          while (j < len && depth > 0) {
+            if (code[j] === '{') depth++;
+            else if (code[j] === '}') { depth--; if (depth === 0) break; }
+            expr += code[j]; j++;
+          }
+          out += '<span style="color:#c0caf5">' + escapeHtml(expr) + '</span>';
+          if (j < len && code[j] === '}') { out += '<span style="color:#7dcfff">}</span>'; j++; }
+        } else {
+          out += '<span style="color:#9ece6a">' + escapeHtml(code[j]) + '</span>';
+          j++;
+        }
       }
-      if (j < len) { s += '"'; j++; }
-      out += '<span style="color:#9ece6a">' + escapeHtml(s) + '</span>';
+      if (j < len) { out += '<span style="color:#9ece6a">&quot;</span>'; j++; }
       i = j; continue;
     }
     if (code[i] >= '0' && code[i] <= '9') {
