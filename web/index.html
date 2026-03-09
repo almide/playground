@@ -900,11 +900,11 @@ const HL_KEYWORDS = new Set([
   'import','type','fn','let','var','if','then','else','match',
   'effect','do','guard','ok','err','some','none','try','strict','pub',
   'deriving','test','async','await','newtype','for','in','trait','impl','unsafe',
-  'and','or','not','local','mod',
+  'and','or','not','local','mod','module','return','todo','extern',
 ]);
 const HL_BOOLS = new Set(['true','false']);
 const HL_BUILTINS = new Set(['println','eprintln','assert','assert_eq','assert_ne','unwrap_or']);
-const HL_MODULES = new Set(['string','list','int','env','fs']);
+const HL_MODULES = new Set(['string','list','map','int','float','fs','env','process','io','json','math','random','regex','time','path','encoding','args']);
 
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -973,7 +973,7 @@ async function initShiki() {
   try {
     const { createHighlighterCore } = await import('https://esm.sh/shiki@3.2.1/core');
     const { createJavaScriptRegexEngine } = await import('https://esm.sh/shiki@3.2.1/engine/javascript');
-    const grammarResp = await fetch('./almide.tmLanguage.json');
+    const grammarResp = await fetch('https://raw.githubusercontent.com/almide/almide-editors/main/grammar/almide.tmLanguage.json');
     const grammar = await grammarResp.json();
     grammar.name = 'almide';
     shikiHighlighter = await createHighlighterCore({
