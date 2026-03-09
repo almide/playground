@@ -1,0 +1,19 @@
+import time
+
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  // 2024-01-15 12:30:00 UTC
+  let ts = time.from_parts(2024, 1, 15, 12, 30, 0)
+  assert_eq(time.year(ts), 2024)
+  assert_eq(time.month(ts), 1)
+  assert_eq(time.day(ts), 15)
+  assert_eq(time.hour(ts), 12)
+  assert_eq(time.minute(ts), 30)
+  assert_eq(time.second(ts), 0)
+  assert_eq(time.to_iso(ts), "2024-01-15T12:30:00Z")
+
+  // roundtrip
+  let ts2 = time.from_parts(2000, 6, 15, 0, 0, 0)
+  assert_eq(time.to_iso(ts2), "2000-06-15T00:00:00Z")
+
+  println("time: ok")
+}

@@ -1,0 +1,17 @@
+// known-issue: compiler emits __almd_map.new() but runtime defines new_()
+
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  let m: Map[String, Int] = map.new()
+  let m2 = map.set(m, "a", 1)
+  let m3 = map.set(m2, "b", 2)
+  assert_eq(map.get(m3, "a"), some(1))
+  assert_eq(map.get(m3, "z"), none)
+  assert_eq(map.get_or(m3, "z", 99), 99)
+  assert(map.contains(m3, "a"))
+  assert_eq(map.len(m3), 2)
+  assert_eq(map.keys(m3), ["a", "b"])
+  let m4 = map.remove(m3, "a")
+  assert_eq(map.len(m4), 1)
+  assert_eq(map.get(m4, "a"), none)
+  println("map: ok")
+}

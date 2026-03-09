@@ -322,77 +322,68 @@ button.ai:hover:not(:disabled) {
     <div class="panel-header">Source</div>
     <div class="editor-wrap">
     <pre class="editor-highlight" id="highlight" aria-hidden="true"></pre>
-    <textarea id="editor" spellcheck="false">// --- Variant type + pattern matching ---
-type Color =
-  | Red
-  | Green
-  | Blue
-  | Custom(Int, Int, Int)
+    <textarea id="editor" spellcheck="false">// A tiny Markdown-to-text renderer
 
-fn color_name(c: Color) -> String =
-  match c {
-    Red => "Red"
-    Green => "Green"
-    Blue => "Blue"
-    Custom(r, g, b) => "RGB(" ++ int.to_string(r) ++ "," ++ int.to_string(g) ++ "," ++ int.to_string(b) ++ ")"
+type Token =
+  | Heading(Int, String)
+  | Paragraph(String)
+  | Bullet(String)
+  | Divider
+
+fn parse_line(line: String) -> Token =
+  if string.starts_with?(line, "### ") then Heading(3, string.slice(line, 4))
+  else if string.starts_with?(line, "## ") then Heading(2, string.slice(line, 3))
+  else if string.starts_with?(line, "# ") then Heading(1, string.slice(line, 2))
+  else if string.starts_with?(line, "- ") then Bullet(string.slice(line, 2))
+  else if string.starts_with?(line, "---") then Divider
+  else Paragraph(line)
+
+fn render(token: Token) -> String =
+  match token {
+    Heading(1, text) => string.to_upper(text) ++ "\n" ++ string.repeat("=", string.len(text))
+    Heading(_, text) => text ++ "\n" ++ string.repeat("-", string.len(text))
+    Paragraph(text) => "  " ++ text
+    Bullet(text) => "  * " ++ text
+    Divider => string.repeat("~", 40)
   }
 
-// --- Option handling ---
-fn safe_head(xs: List[String]) -> Option[String] =
-  list.get(xs, 0)
-
-fn greet(names: List[String]) -> String =
-  match safe_head(names) {
-    some(name) => "Hello, ${name}!"
-    none => "Hello, World!"
-  }
-
-// --- List ops with lambdas + pipe ---
-fn summarize(nums: List[Int]) -> String = {
-  let total = list.fold(nums, 0, fn(acc, x) => acc + x)
-  let evens = nums
-    |> list.filter(fn(x) => x % 2 == 0)
-    |> list.map(fn(x) => int.to_string(x))
-    |> string.join(", ")
-  "sum=" ++ int.to_string(total) ++ " evens=[" ++ evens ++ "]"
-}
-
-// --- FizzBuzz with if/then/else ---
-fn fizzbuzz(n: Int) -> String =
-  if n % 15 == 0 then "FizzBuzz"
-  else if n % 3 == 0 then "Fizz"
-  else if n % 5 == 0 then "Buzz"
-  else int.to_string(n)
-
-// --- Entry point ---
 effect fn main(_args: List[String]) -> Result[Unit, String] = {
-  // Variant types
-  let colors = [Red, Green, Blue, Custom(255, 128, 0)]
-  for c in colors {
-    println("  " ++ color_name(c))
+  let doc = [
+    "# Almide",
+    "## A language that compiles to Rust and TypeScript",
+    "---",
+    "- Variant types with pattern matching",
+    "- Pipes, lambdas, and ranges",
+    "- Effect system for side effects",
+    "- Compiles to native and web",
+    "---",
+    "## Quick math",
+  ]
+
+  // Parse and render the document
+  doc
+    |> list.map(fn(line) => parse_line(line))
+    |> list.map(fn(tok) => render(tok))
+    |> list.each(fn(s) => println(s))
+
+  // Show off pipes + lambdas + ranges
+  let primes = 2..=50
+    |> list.filter(fn(n) =>
+      list.all(2..n, fn(d) => n % d != 0))
+
+  println("  Primes up to 50: " ++ string.join(
+    list.map(primes, fn(n) => int.to_string(n)), " "))
+
+  // Collatz conjecture
+  println("")
+  var n = 27
+  var steps = 0
+  do {
+    guard n != 1 else ok(())
+    n = if n % 2 == 0 then n / 2 else n * 3 + 1
+    steps = steps + 1
   }
-
-  // Option
-  println(greet(["Almide"]))
-  println(greet([]))
-
-  // List + pipe + lambda
-  println(summarize(1..=10))
-
-  // Range + FizzBuzz
-  let results = list.map(1..=15, fn(i) => fizzbuzz(i))
-  println(string.join(results, " "))
-
-  // Range: sum with for-in
-  var sum = 0
-  for i in 1..=100 {
-    sum = sum + i
-  }
-  println("Sum 1..=100 = " ++ int.to_string(sum))
-
-  // Range: squares
-  let squares = list.map(0..5, fn(i) => i * i)
-  println("Squares: " ++ string.join(list.map(squares, fn(x) => int.to_string(x)), ", "))
+  println("  Collatz(27): " ++ int.to_string(steps) ++ " steps to reach 1")
 }</textarea>
     </div>
   </div>
@@ -767,10 +758,47 @@ window.generateCode = async function() {
 
 // --- Compiler / Runner ---
 
-function stripRuntimeAndEntry(js) {
+// Patch compiler's Node.js runtime for browser execution.
+// Instead of maintaining a separate polyfill set, we reuse the compiler's
+// runtime as-is and only replace the parts that use Node.js APIs.
+function patchRuntimeForBrowser(js) {
   let code = js;
-  const endRuntime = code.indexOf('// ---- End Runtime ----');
-  if (endRuntime !== -1) code = code.substring(endRuntime + '// ---- End Runtime ----'.length);
+  // Replace Node.js module blocks with browser-safe stubs
+  const browserOverrides = {
+    '__almd_fs': '{ exists(p){throw new Error("fs: not available in browser")}, read_text(p){throw new Error("fs: not available in browser")}, read_bytes(p){throw new Error("fs: not available in browser")}, write(p,s){throw new Error("fs: not available in browser")}, write_bytes(p,b){throw new Error("fs: not available in browser")}, append(p,s){throw new Error("fs: not available in browser")}, mkdir_p(p){throw new Error("fs: not available in browser")}, exists_hdlm_qm_(p){throw new Error("fs: not available in browser")}, read_lines(p){throw new Error("fs: not available in browser")}, remove(p){throw new Error("fs: not available in browser")}, list_dir(p){throw new Error("fs: not available in browser")} }',
+    '__almd_env': '{ unix_timestamp(){return Math.floor(Date.now()/1000)}, args(){return["playground"]}, get(name){return null}, set(name,value){}, cwd(){return "/"}, millis(){return Date.now()}, sleep_ms(ms){} }',
+    '__almd_process': '{ exec(cmd,args){throw new Error("process: not available in browser")}, exit(code){throw new Error("process: not available in browser")}, stdin_lines(){throw new Error("process: not available in browser")} }',
+    '__almd_io': '{ read_line(){throw new Error("io: not available in browser")}, print(s){}, read_all(){throw new Error("io: not available in browser")} }',
+    '__almd_http': '{ async serve(){throw new Error("http: not available in browser")}, response(s,b){return{status:s,body:b,headers:{}}}, json(s,b){return{status:s,body:b,headers:{}}}, with_headers(s,b,h){return{status:s,body:b,headers:h}}, async get(u){throw new Error("http: not available in browser")}, async post(u,b){throw new Error("http: not available in browser")} }',
+  };
+  for (const [mod, stub] of Object.entries(browserOverrides)) {
+    const prefix = 'const ' + mod + ' = ';
+    const start = code.indexOf(prefix);
+    if (start === -1) continue;
+    // Find the end of the object literal (matching };)
+    const objStart = start + prefix.length;
+    let depth = 0, i = objStart;
+    while (i < code.length) {
+      if (code[i] === '{') depth++;
+      else if (code[i] === '}') { depth--; if (depth === 0) break; }
+      else if (code[i] === '"' || code[i] === "'") {
+        const q = code[i]; i++;
+        while (i < code.length && code[i] !== q) { if (code[i] === '\\') i++; i++; }
+      }
+      i++;
+    }
+    code = code.substring(0, objStart) + stub + code.substring(i + 1);
+  }
+  // Replace println/eprintln with output capture
+  code = code.replace(
+    /function println\(s\)\s*\{[^}]*\}/,
+    'function println(s) { __println__(s); }'
+  );
+  code = code.replace(
+    /function eprintln\(s\)\s*\{[^}]*\}/,
+    'function eprintln(s) { __println__(s); }'
+  );
+  // Strip the entry point (we'll add our own)
   const entryPoint = code.indexOf('// ---- Entry Point ----');
   if (entryPoint !== -1) code = code.substring(0, entryPoint);
   return code;
@@ -779,28 +807,8 @@ function stripRuntimeAndEntry(js) {
 function captureOutput(js) {
   const lines = [];
   const fakePrintln = (s) => lines.push(String(s));
-  const userCode = stripRuntimeAndEntry(js);
-  const wrappedCode = [
-    'const println = __println__;',
-    'const eprintln = __println__;',
-    'const __fs = { exists(p){throw new Error("fs not available in browser")}, read_text(p){throw new Error("fs not available in browser")}, read_bytes(p){throw new Error("fs not available in browser")}, write(p,s){throw new Error("fs not available in browser")}, write_bytes(p,b){throw new Error("fs not available in browser")}, append(p,s){throw new Error("fs not available in browser")}, mkdir_p(p){throw new Error("fs not available in browser")}, exists_q(p){throw new Error("fs not available in browser")} };',
-    'const __string = { trim(s){return s.trim()}, split(s,sep){return s.split(sep)}, join(arr,sep){return arr.join(sep)}, len(s){return s.length}, pad_left(s,n,ch){return s.padStart(n,ch)}, starts_with(s,prefix){return s.startsWith(prefix)}, slice(s,start,end){return end!==undefined?s.slice(start,end):s.slice(start)}, to_bytes(s){return Array.from(new TextEncoder().encode(s))}, contains(s,sub){return s.includes(sub)}, starts_with_q(s,prefix){return s.startsWith(prefix)}, ends_with_q(s,suffix){return s.endsWith(suffix)}, to_upper(s){return s.toUpperCase()}, to_lower(s){return s.toLowerCase()}, to_int(s){const n=parseInt(s,10);if(isNaN(n))throw new Error("invalid integer: "+s);return n}, replace(s,from,to){return s.split(from).join(to)}, char_at(s,i){return i<s.length?s[i]:null} };',
-    'const __list = { len(xs){return xs.length}, get(xs,i){return i<xs.length?xs[i]:null}, sort(xs){return[...xs].sort()}, contains(xs,x){return xs.includes(x)}, each(xs,f){xs.forEach(f)}, map(xs,f){return xs.map(f)}, filter(xs,f){return xs.filter(f)}, find(xs,f){return xs.find(f)??null}, fold(xs,init,f){return xs.reduce(f,init)} };',
-    'const __int = { to_hex(n){return(typeof n==="bigint"?(n>=0n?n:n+(1n<<64n)).toString(16):n.toString(16))}, to_string(n){return String(n)} };',
-    'const __float = { to_string(n){return String(n)}, to_int(n){return Math.trunc(n)}, round(n){return Math.round(n)}, floor(n){return Math.floor(n)}, ceil(n){return Math.ceil(n)}, abs(n){return Math.abs(n)}, sqrt(n){return Math.sqrt(n)}, parse(s){const n=parseFloat(s);if(isNaN(n))throw new Error("invalid float: "+s);return n} };',
-    'const __env = { unix_timestamp(){return Math.floor(Date.now()/1000)}, args(){return[]} };',
-    'function __bigop(op,a,b){if(typeof a==="bigint"||typeof b==="bigint"){const ba=typeof a==="bigint"?a:BigInt(a);const bb=typeof b==="bigint"?b:BigInt(b);switch(op){case"^":return ba^bb;case"*":return ba*bb;case"%":return ba%bb;case"+":return ba+bb;case"-":return ba-bb;default:return ba}}switch(op){case"^":return a^b;case"*":return a*b;case"%":return a%b;case"+":return a+b;case"-":return a-b;default:return a}}',
-    'function __div(a,b){if(typeof a==="bigint"||typeof b==="bigint"){const ba=typeof a==="bigint"?a:BigInt(a);const bb=typeof b==="bigint"?b:BigInt(b);return ba/bb}const r=a/b;return(Number.isInteger(a)&&Number.isInteger(b))?Math.trunc(r):r}',
-    'function __deep_eq(a,b){if(a===b)return true;if(Array.isArray(a)&&Array.isArray(b)){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++){if(!__deep_eq(a[i],b[i]))return false}return true}if(a&&b&&typeof a==="object"&&typeof b==="object"){const ka=Object.keys(a),kb=Object.keys(b);if(ka.length!==kb.length)return false;for(const k of ka){if(!__deep_eq(a[k],b[k]))return false}return true}return false}',
-    'function assert_eq(a,b){if(!__deep_eq(a,b))throw new Error("assert_eq: "+JSON.stringify(a)+" !== "+JSON.stringify(b))}',
-    'function assert_ne(a,b){if(a===b)throw new Error("assert_ne: "+a+" === "+b)}',
-    'function assert(c){if(!c)throw new Error("assertion failed")}',
-    'function unwrap_or(x,d){return x!==null?x:d}',
-    'function __concat(a,b){return typeof a==="string"?a+b:[...a,...b]}',
-    'function __assert_throws(fn,expectedMsg){try{fn();throw new Error("Expected error")}catch(e){if(e instanceof Error&&e.message===expectedMsg)return;throw e}}',
-    userCode,
-    'if (typeof main === "function") { main(["playground"]); }',
-  ].join('\n');
+  const patched = patchRuntimeForBrowser(js);
+  const wrappedCode = patched + '\nif (typeof main === "function") { main(["playground"]); }';
   try {
     const fn = new Function('__println__', wrappedCode);
     fn(fakePrintln);

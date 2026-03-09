@@ -1,0 +1,13 @@
+// known-issue: bundled path module uses list.last which is missing from runtime
+import path
+
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  assert_eq(path.join("/usr", "bin"), "/usr/bin")
+  assert_eq(path.dirname("/usr/bin/node"), "/usr/bin")
+  assert_eq(path.basename("/usr/bin/node"), "node")
+  assert_eq(path.extension("file.txt"), some("txt"))
+  assert_eq(path.extension("Makefile"), none)
+  assert(path.is_absolute?("/usr"))
+  assert(not path.is_absolute?("relative/path"))
+  println("path: ok")
+}

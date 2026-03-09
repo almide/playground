@@ -1,0 +1,72 @@
+type Color =
+  | Red
+  | Green
+  | Blue
+  | Custom(Int, Int, Int)
+
+fn color_name(c: Color) -> String =
+  match c {
+    Red => "Red"
+    Green => "Green"
+    Blue => "Blue"
+    Custom(r, g, b) => "RGB(" ++ int.to_string(r) ++ "," ++ int.to_string(g) ++ "," ++ int.to_string(b) ++ ")"
+  }
+
+fn safe_head(xs: List[String]) -> Option[String] =
+  list.get(xs, 0)
+
+fn greet(names: List[String]) -> String =
+  match safe_head(names) {
+    some(name) => "Hello, ${name}!"
+    none => "Hello, World!"
+  }
+
+fn fizzbuzz(n: Int) -> String =
+  if n % 15 == 0 then "FizzBuzz"
+  else if n % 3 == 0 then "Fizz"
+  else if n % 5 == 0 then "Buzz"
+  else int.to_string(n)
+
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  // Variant types
+  assert_eq(color_name(Red), "Red")
+  assert_eq(color_name(Custom(255, 128, 0)), "RGB(255,128,0)")
+
+  // Option handling
+  assert_eq(greet(["Almide"]), "Hello, Almide!")
+  assert_eq(greet([]), "Hello, World!")
+
+  // Arithmetic + pipe + lambda
+  let total = list.fold(1..=10, 0, fn(acc, x) => acc + x)
+  assert_eq(total, 55)
+
+  let evens = 1..=10
+    |> list.filter(fn(x) => x % 2 == 0)
+  assert_eq(evens, [2, 4, 6, 8, 10])
+
+  // String concat
+  assert_eq("hello" ++ " " ++ "world", "hello world")
+
+  // FizzBuzz
+  assert_eq(fizzbuzz(15), "FizzBuzz")
+  assert_eq(fizzbuzz(3), "Fizz")
+  assert_eq(fizzbuzz(5), "Buzz")
+  assert_eq(fizzbuzz(7), "7")
+
+  // Range + for-in
+  var sum = 0
+  for i in 1..=100 {
+    sum = sum + i
+  }
+  assert_eq(sum, 5050)
+
+  // Division
+  assert_eq(10 / 3, 3)
+  assert_eq(7 / 2, 3)
+
+  // String interpolation
+  let name = "world"
+  assert_eq("hello ${name}", "hello world")
+
+  println("basics: ok")
+}
