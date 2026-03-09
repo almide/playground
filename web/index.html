@@ -1094,7 +1094,7 @@ function highlightFallback(code) {
             else if (code[j] === '}') { depth--; if (depth === 0) break; }
             expr += code[j]; j++;
           }
-          out += '<span style="color:#c0caf5">' + escapeHtml(expr) + '</span>';
+          out += highlightFallback(expr).replace(/\n$/, '');
           if (j < len && code[j] === '}') { out += '<span style="color:#7dcfff">}</span>'; j++; }
         } else {
           out += '<span style="color:#9ece6a">' + escapeHtml(code[j]) + '</span>';
