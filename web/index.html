@@ -347,17 +347,30 @@ fn render(token: Token) -> String =
     Divider => string.repeat("~", 40)
   }
 
+fn fibonacci(n: Int) -> List[Int] = {
+  var a = 0
+  var b = 1
+  var result: List[Int] = []
+  for _ in 0..n {
+    result = result ++ [a]
+    let next = a + b
+    a = b
+    b = next
+  }
+  result
+}
+
 effect fn main(_args: List[String]) -> Result[Unit, String] = {
   let doc = [
     "# Almide",
     "## A language that compiles to Rust and TypeScript",
     "---",
     "- Variant types with pattern matching",
-    "- Pipes, lambdas, and ranges",
+    "- Pipes, lambdas, and string interpolation",
     "- Effect system for side effects",
     "- Compiles to native and web",
     "---",
-    "## Story Points",
+    "## Fibonacci",
   ]
 
   doc
@@ -365,17 +378,27 @@ effect fn main(_args: List[String]) -> Result[Unit, String] = {
     |> list.map(fn(tok) => render(tok))
     |> list.each(fn(s) => println(s))
 
-  // FizzBuzz as story point estimation
-  let points = 1..=15
-    |> list.map(fn(n) =>
-      if n % 15 == 0 then "[" ++ int.to_string(n) ++ " FizzBuzz]"
-      else if n % 3 == 0 then "[" ++ int.to_string(n) ++ " Fizz]"
-      else if n % 5 == 0 then "[" ++ int.to_string(n) ++ " Buzz]"
-      else "[" ++ int.to_string(n) ++ "]")
+  let fibs = fibonacci(10)
+  let visual = fibs
+    |> list.map(fn(n) => "[${int.to_string(n)}]")
+    |> string.join(" ")
+  println("  ${visual}")
 
-  points
-    |> list.chunk(5)
-    |> list.each(fn(row) => println("  " ++ string.join(row, " ")))
+  let sum = list.fold(fibs, 0, fn(acc, x) => acc + x)
+  println("  sum = ${int.to_string(sum)}")
+
+  // Heredoc + string interpolation
+  let lang = "Almide"
+  let target1 = "Rust"
+  let target2 = "TypeScript"
+  let report = """
+    ${lang} compiles to:
+      1. ${target1} (native)
+      2. ${target2} (web)
+    Total targets: ${int.to_string(2)}
+  """
+  println("")
+  println(report)
 }</textarea>
     </div>
   </div>
