@@ -1,4 +1,3 @@
-// known-issue: bundled path module uses list.last which is missing from runtime
 import path
 
 effect fn main(_args: List[String]) -> Result[Unit, String] = {

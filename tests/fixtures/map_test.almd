@@ -1,5 +1,3 @@
-// known-issue: compiler emits __almd_map.new() but runtime defines new_()
-
 effect fn main(_args: List[String]) -> Result[Unit, String] = {
   let m: Map[String, Int] = map.new()
   let m2 = map.set(m, "a", 1)
