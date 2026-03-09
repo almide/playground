@@ -357,33 +357,25 @@ effect fn main(_args: List[String]) -> Result[Unit, String] = {
     "- Effect system for side effects",
     "- Compiles to native and web",
     "---",
-    "## Quick math",
+    "## Story Points",
   ]
 
-  // Parse and render the document
   doc
     |> list.map(fn(line) => parse_line(line))
     |> list.map(fn(tok) => render(tok))
     |> list.each(fn(s) => println(s))
 
-  // Show off pipes + lambdas + ranges
-  let primes = 2..=50
-    |> list.filter(fn(n) =>
-      list.all(2..n, fn(d) => n % d != 0))
+  // FizzBuzz as story point estimation
+  let points = 1..=15
+    |> list.map(fn(n) =>
+      if n % 15 == 0 then "[" ++ int.to_string(n) ++ " FizzBuzz]"
+      else if n % 3 == 0 then "[" ++ int.to_string(n) ++ " Fizz]"
+      else if n % 5 == 0 then "[" ++ int.to_string(n) ++ " Buzz]"
+      else "[" ++ int.to_string(n) ++ "]")
 
-  println("  Primes up to 50: " ++ string.join(
-    list.map(primes, fn(n) => int.to_string(n)), " "))
-
-  // Collatz conjecture
-  println("")
-  var n = 27
-  var steps = 0
-  do {
-    guard n != 1 else ok(())
-    n = if n % 2 == 0 then n / 2 else n * 3 + 1
-    steps = steps + 1
-  }
-  println("  Collatz(27): " ++ int.to_string(steps) ++ " steps to reach 1")
+  points
+    |> list.chunk(5)
+    |> list.each(fn(row) => println("  " ++ string.join(row, " ")))
 }</textarea>
     </div>
   </div>
