@@ -241,6 +241,10 @@ button.ai:hover:not(:disabled) {
   max-height: 120px; overflow-y: auto; font-size: 11px;
   margin-top: 4px;
 }
+.repair-log .log-diff { margin-top: 6px; font-size: 11px; line-height: 1.6; }
+.repair-log .diff-add { color: var(--success-text); }
+.repair-log .diff-del { color: var(--error-text); text-decoration: line-through; opacity: 0.7; }
+.repair-log .diff-ctx { color: var(--text-muted); }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -551,7 +555,7 @@ string: trim split join len lines chars pad_left pad_right slice contains
   is_empty? is_digit? is_alpha? is_alphanumeric? is_whitespace?
   strip_prefix strip_suffix count
 
-list: len get get_or first last sort sort_by reverse contains index_of
+list: len get get_or set swap first last sort sort_by reverse contains index_of
   any all each map flat_map filter find fold enumerate zip flatten
   take drop chunk unique join sum product min max is_empty?
   filter_map take_while drop_while count partition reduce group_by
@@ -594,7 +598,7 @@ import args   — flag? option option_or positional
 println(s) eprintln(s) assert_eq(a,b) assert_ne(a,b) assert(cond) unwrap_or(opt,default)
 
 ## Rules
-- if ALWAYS requires else — no standalone if
+- if-then-else for expressions. else is optional only when then-branch is Unit
 - for...in for iteration (preferred over do+guard)
 - ++ for string/list concat, ^ for XOR, not for boolean negation
 - effect fn for side effects, Result[T,E] for errors, Option[T] for nullable
@@ -605,15 +609,27 @@ println(s) eprintln(s) assert_eq(a,b) assert_ne(a,b) assert(cond) unwrap_or(opt,
 - Heredoc: """....""" with \${expr} interpolation, strips common indent
 - Raw string: r"..." — no escape processing (for regex patterns etc.)
 - UFCS: f(x, y) = x.f(y) — compiler resolves automatically
+- fn parameters are IMMUTABLE. Use var to create a mutable copy
+- Lists are immutable: list.set/list.swap return NEW lists
+
+## Immutable list patterns
+- list.get(xs, i) returns nullable. Use list.get_or(xs, i, default) for non-null
+- list.set(xs, i, v) returns a new list. Assign: var a = xs; a = list.set(a, i, v)
+- list.swap(xs, i, j) returns a new list with elements swapped
+- For algorithms (sort, etc): use var + tuple return:
+    fn partition(arr, lo, hi) -> (List[Int], Int) = {
+      var a = arr  // mutable copy
+      a = list.swap(a, i, j)  // returns new list
+      (a, pivot_index)  // return modified list + result
+    }
 
 ## Common mistakes — DO NOT
 - list[1,2,3] → WRONG. Write [1,2,3]
 - each(xs,f) → WRONG. Write list.each(xs,f)
 - map[K,V] as value → WRONG. Write map.new()
 - println(42) → WRONG. Write println(int.to_string(42))
-- fn foo[T](x: T) → WRONG. No user-defined generics. Use concrete types
 - List.new() → WRONG. Write []. No new() for List
-- if x then y (no else) → WRONG. else is mandatory
+- arr = list.set(arr, i, v) where arr is a parameter → WRONG. Parameters are immutable. Declare var a = arr first
 
 ## Note: This runs in a browser playground
 - fs, process, io, env.args are NOT available (will throw errors)
@@ -755,6 +771,45 @@ async function readSSE(resp, onEvent) {
   }
 }
 
+function simpleDiff(before, after) {
+  const a = before.split('\n'), b = after.split('\n');
+  const lines = [];
+  let ai = 0, bi = 0;
+  while (ai < a.length || bi < b.length) {
+    if (ai < a.length && bi < b.length && a[ai] === b[bi]) {
+      lines.push({ type: 'ctx', text: a[ai] }); ai++; bi++;
+    } else if (bi < b.length && (ai >= a.length || !a.includes(b[bi]))) {
+      lines.push({ type: 'add', text: b[bi] }); bi++;
+    } else if (ai < a.length && (bi >= b.length || !b.includes(a[ai]))) {
+      lines.push({ type: 'del', text: a[ai] }); ai++;
+    } else {
+      lines.push({ type: 'del', text: a[ai] }); ai++;
+      lines.push({ type: 'add', text: b[bi] }); bi++;
+    }
+  }
+  // Collapse long context runs
+  const result = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].type !== 'ctx') { result.push(lines[i]); continue; }
+    const isNearChange = (j) => j >= 0 && j < lines.length && lines[j].type !== 'ctx';
+    if (isNearChange(i-1) || isNearChange(i+1) || isNearChange(i-2) || isNearChange(i+2)) {
+      result.push(lines[i]);
+    } else if (result.length === 0 || result[result.length-1].type !== 'skip') {
+      result.push({ type: 'skip', text: '...' });
+    }
+  }
+  return result;
+}
+
+function renderDiffHtml(diffLines) {
+  return diffLines.map(l => {
+    const cls = l.type === 'add' ? 'diff-add' : l.type === 'del' ? 'diff-del' : l.type === 'skip' ? 'diff-ctx' : 'diff-ctx';
+    const prefix = l.type === 'add' ? '+ ' : l.type === 'del' ? '- ' : '  ';
+    const escaped = l.text.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    return '<div class="' + cls + '">' + prefix + escaped + '</div>';
+  }).join('');
+}
+
 const MAX_REPAIR_ATTEMPTS = 3;
 
 function tryCompileAndRun(source) {
@@ -824,6 +879,12 @@ window.generateCode = async function() {
         detail.textContent = entry.detail;
         step.appendChild(detail);
       }
+      if (entry.diffHtml) {
+        const diff = document.createElement('div');
+        diff.className = 'log-diff';
+        diff.innerHTML = entry.diffHtml;
+        step.appendChild(diff);
+      }
       container.appendChild(step);
     }
     outputEl.appendChild(container);
@@ -846,6 +907,7 @@ window.generateCode = async function() {
     }
 
     let code = editor.value;
+    let prevCode = code;
     let result = tryCompileAndRun(code);
     let totalFixes = 0;
 
@@ -870,6 +932,7 @@ window.generateCode = async function() {
         phase + ':\n' + result.error + '\n\nFix the code and output ONLY the corrected .almd source. No explanations.'
       });
 
+      prevCode = code;
       editor.value = '';
       await streamFn(apiKey, model, messages, abortController.signal, (text) => {
         editor.value += text;
@@ -883,7 +946,8 @@ window.generateCode = async function() {
       result = tryCompileAndRun(code);
 
       if (result.ok) {
-        repairLog.push({ cls: 'log-ok', label: 'Fixed \u2014 compile & run OK' });
+        const diff = simpleDiff(prevCode, code);
+        repairLog.push({ cls: 'log-ok', label: 'Fixed \u2014 compile & run OK', diffHtml: renderDiffHtml(diff) });
       } else {
         const newPhase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
         const prevError = repairLog.filter(e => e.cls === 'log-error').pop();
@@ -1084,6 +1148,12 @@ window.repairFromRun = async function(originalCode, initialResult) {
         detail.textContent = entry.detail;
         step.appendChild(detail);
       }
+      if (entry.diffHtml) {
+        const diff = document.createElement('div');
+        diff.className = 'log-diff';
+        diff.innerHTML = entry.diffHtml;
+        step.appendChild(diff);
+      }
       container.appendChild(step);
     }
     outputEl.appendChild(container);
@@ -1098,6 +1168,7 @@ window.repairFromRun = async function(originalCode, initialResult) {
     { role: 'user', content: phase + ':\n' + result.error + '\n\nFix the code and output ONLY the corrected .almd source. No explanations.' }
   ];
 
+  let prevCode = originalCode;
   let totalFixes = 0;
   try {
     while (!result.ok && totalFixes < MAX_REPAIR_ATTEMPTS) {
@@ -1120,7 +1191,8 @@ window.repairFromRun = async function(originalCode, initialResult) {
       result = tryCompileAndRun(code);
 
       if (result.ok) {
-        repairLog.push({ cls: 'log-ok', label: 'Fixed \u2014 compile & run OK' });
+        const diff = simpleDiff(prevCode, code);
+        repairLog.push({ cls: 'log-ok', label: 'Fixed \u2014 compile & run OK', diffHtml: renderDiffHtml(diff) });
         if (result.output) {
           repairLog.push({ cls: 'log-ok', label: 'Output', detail: result.output });
         }
@@ -1178,7 +1250,7 @@ const HL_KEYWORDS = new Set([
 ]);
 const HL_BOOLS = new Set(['true','false']);
 const HL_BUILTINS = new Set(['println','eprintln','assert','assert_eq','assert_ne','unwrap_or']);
-const HL_MODULES = new Set(['string','list','map','int','float','fs','env','process','io','json','math','random','regex','time','path','encoding','args']);
+const HL_MODULES = new Set(['string','list','map','int','float','fs','env','process','io','json','math','random','regex','time','path','encoding','args','hash','term']);
 
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
