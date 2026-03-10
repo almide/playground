@@ -8,9 +8,6 @@ fn parse_source(source: &str) -> Result<almide::ast::Program, String> {
     let tokens = lexer::Lexer::tokenize(source);
     let mut parser = parser::Parser::new(tokens);
     let program = parser.parse().map_err(|e| format!("Parse error: {}", e))?;
-    if !parser.errors.is_empty() {
-        return Err(format!("Parse error: {}", parser.errors.join("\n")));
-    }
     Ok(program)
 }
 
@@ -24,6 +21,16 @@ pub fn compile_to_ts(source: &str) -> Result<String, String> {
 pub fn compile_to_js(source: &str) -> Result<String, String> {
     let program = parse_source(source)?;
     Ok(emit_ts::emit_js_with_modules(&program, &[]))
+}
+
+#[wasm_bindgen]
+pub fn get_version_info() -> String {
+    format!(
+        "almide v{} ({}), playground ({})",
+        env!("ALMIDE_VERSION"),
+        env!("ALMIDE_COMMIT"),
+        env!("PLAYGROUND_COMMIT"),
+    )
 }
 
 #[wasm_bindgen]

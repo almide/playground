@@ -143,6 +143,18 @@ button.ai:hover:not(:disabled) {
   color: var(--text-secondary);
 }
 .panel-header .tab:hover:not(.active) { color: var(--text-secondary); }
+.version-badge {
+  margin-left: auto;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 
 .editor-wrap { flex: 1; position: relative; overflow: hidden; }
 .editor-highlight, .editor-wrap textarea {
@@ -319,7 +331,7 @@ button.ai:hover:not(:disabled) {
 
 <div class="panels">
   <div class="panel">
-    <div class="panel-header">Source</div>
+    <div class="panel-header">Source<span id="version-text" class="version-badge"></span></div>
     <div class="editor-wrap">
     <pre class="editor-highlight" id="highlight" aria-hidden="true"></pre>
     <textarea id="editor" spellcheck="false">// A tiny Markdown-to-text renderer
@@ -432,7 +444,7 @@ effect fn main(_args: List[String]) -> Result[Unit, String] = {
 </div>
 
 <script type="module">
-import init, { compile_to_js, compile_to_ts, parse_to_ast } from './pkg/almide_playground.js';
+import init, { compile_to_js, compile_to_ts, parse_to_ast, get_version_info } from './pkg/almide_playground.js';
 
 let wasmReady = false;
 
@@ -479,6 +491,7 @@ async function boot() {
     await init();
     wasmReady = true;
     document.getElementById('status-text').textContent = 'Your API key is never sent to external servers.';
+    document.getElementById('version-text').textContent = get_version_info();
   } catch(e) {
     document.getElementById('status-text').textContent = 'Wasm load failed: ' + e;
   }
