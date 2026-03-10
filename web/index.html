@@ -1007,22 +1007,144 @@ window.compileCode = function() {
 window.runCode = function() {
   if (!wasmReady) { alert('Wasm not loaded yet'); return; }
   const source = document.getElementById('editor').value;
+  const outputEl = document.getElementById('output');
+  const compiledEl = document.getElementById('compiled');
+  const statusText = document.getElementById('status-text');
   const start = performance.now();
+  const result = tryCompileAndRun(source);
+  const elapsed = (performance.now() - start).toFixed(1);
+
+  if (result.ok) {
+    if (result.js) compiledEl.textContent = result.js;
+    compiledEl.className = 'output-area';
+    outputEl.textContent = result.output || '(no output)';
+    outputEl.className = 'output-area success';
+    showTab('output');
+    statusText.textContent = 'Ran in ' + elapsed + 'ms';
+  } else {
+    const phase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
+    if (result.js) compiledEl.textContent = result.js;
+
+    // Show error with "Fix with AI" button
+    outputEl.className = 'output-area error';
+    outputEl.innerHTML = '';
+    const errorPre = document.createElement('pre');
+    errorPre.style.cssText = 'white-space:pre-wrap;word-break:break-word;margin:0 0 12px';
+    errorPre.textContent = result.error;
+    outputEl.appendChild(errorPre);
+
+    const apiKey = document.getElementById('ai-key').value.trim();
+    if (apiKey) {
+      const fixBtn = document.createElement('button');
+      fixBtn.textContent = 'Fix with AI';
+      fixBtn.style.cssText = 'background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:500';
+      fixBtn.onclick = () => repairFromRun(source, result);
+      outputEl.appendChild(fixBtn);
+    }
+
+    showTab('output');
+    statusText.textContent = phase;
+  }
+};
+
+window.repairFromRun = async function(originalCode, initialResult) {
+  const provider = document.getElementById('ai-provider').value;
+  const apiKey = document.getElementById('ai-key').value.trim();
+  if (!apiKey) return;
+  const model = document.getElementById('ai-model').value;
+  const editor = document.getElementById('editor');
+  const outputEl = document.getElementById('output');
+  const compiledEl = document.getElementById('compiled');
+  const statusText = document.getElementById('status-text');
+  const streamFn = { anthropic: streamAnthropic, openai: streamOpenAI, gemini: streamGemini }[provider];
+
+  abortController = new AbortController();
+  let repairLog = [];
+  let code = originalCode;
+  let result = initialResult;
+  const phase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
+
+  repairLog.push({ cls: 'log-error', label: phase + ' detected', detail: result.error });
+
+  function renderLog() {
+    outputEl.className = 'output-area';
+    outputEl.innerHTML = '';
+    const container = document.createElement('div');
+    container.className = 'repair-log';
+    for (const entry of repairLog) {
+      const step = document.createElement('div');
+      step.className = 'log-step ' + entry.cls;
+      const label = document.createElement('div');
+      label.className = 'log-label';
+      label.textContent = entry.label;
+      step.appendChild(label);
+      if (entry.detail) {
+        const detail = document.createElement('div');
+        detail.className = 'log-detail';
+        detail.textContent = entry.detail;
+        step.appendChild(detail);
+      }
+      container.appendChild(step);
+    }
+    outputEl.appendChild(container);
+    outputEl.scrollTop = outputEl.scrollHeight;
+    showTab('output');
+  }
+  renderLog();
+
+  const messages = [
+    { role: 'user', content: 'Write this Almide program:\n\n```\n' + code + '\n```' },
+    { role: 'assistant', content: code },
+    { role: 'user', content: phase + ':\n' + result.error + '\n\nFix the code and output ONLY the corrected .almd source. No explanations.' }
+  ];
+
+  let totalFixes = 0;
   try {
-    const js = compile_to_js(source);
-    document.getElementById('compiled').textContent = js;
-    document.getElementById('compiled').className = 'output-area';
-    const output = captureOutput(js);
-    const elapsed = (performance.now() - start).toFixed(1);
-    document.getElementById('output').textContent = output || '(no output)';
-    document.getElementById('output').className = 'output-area success';
-    showTab('output');
-    document.getElementById('status-text').textContent = 'Ran in ' + elapsed + 'ms';
+    while (!result.ok && totalFixes < MAX_REPAIR_ATTEMPTS) {
+      totalFixes++;
+      statusText.textContent = 'Repairing (' + totalFixes + '/' + MAX_REPAIR_ATTEMPTS + ')...';
+      repairLog.push({ cls: 'log-fix', label: 'Repair ' + totalFixes + '/' + MAX_REPAIR_ATTEMPTS + ' \u2014 fixing ' + (result.phase === 'runtime' ? 'runtime error' : 'compile error') });
+      renderLog();
+
+      editor.value = '';
+      editor.classList.add('ai-streaming');
+      await streamFn(apiKey, model, messages, abortController.signal, (text) => {
+        editor.value += text;
+        editor.scrollTop = editor.scrollHeight;
+        syncHighlight();
+      });
+      editor.value = stripCodeFences(editor.value);
+      syncHighlight();
+      code = editor.value;
+
+      result = tryCompileAndRun(code);
+
+      if (result.ok) {
+        repairLog.push({ cls: 'log-ok', label: 'Fixed \u2014 compile & run OK' });
+        if (result.output) {
+          repairLog.push({ cls: 'log-ok', label: 'Output', detail: result.output });
+        }
+        if (result.js) compiledEl.textContent = result.js;
+        compiledEl.className = 'output-area';
+        statusText.textContent = 'Repaired (' + totalFixes + ') & running';
+      } else {
+        const newPhase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
+        repairLog.push({ cls: 'log-error', label: 'New ' + newPhase.toLowerCase(), detail: result.error });
+        messages.push({ role: 'assistant', content: code });
+        messages.push({ role: 'user', content: newPhase + ':\n' + result.error + '\n\nFix the code and output ONLY the corrected .almd source. No explanations.' });
+      }
+      renderLog();
+    }
+    if (!result.ok) {
+      repairLog.push({ cls: 'log-fail', label: 'Failed after ' + MAX_REPAIR_ATTEMPTS + ' attempts', detail: result.error });
+      renderLog();
+      statusText.textContent = 'Failed';
+    }
   } catch(e) {
-    document.getElementById('output').textContent = String(e);
-    document.getElementById('output').className = 'output-area error';
-    showTab('output');
-    document.getElementById('status-text').textContent = 'Error';
+    if (e.name !== 'AbortError') statusText.textContent = 'Error: ' + e.message;
+  } finally {
+    abortController = null;
+    editor.classList.remove('ai-streaming');
   }
 };
 
