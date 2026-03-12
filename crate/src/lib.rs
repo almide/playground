@@ -32,14 +32,14 @@ fn check_program(program: &mut almide::ast::Program, source: &str) -> Result<(),
 pub fn compile_to_ts(source: &str) -> Result<String, String> {
     let mut program = parse_source(source)?;
     check_program(&mut program, source)?;
-    Ok(emit_ts::emit_with_modules(&program, &[]))
+    Ok(emit_ts::emit_with_modules(&program, &[], None))
 }
 
 #[wasm_bindgen]
 pub fn compile_to_js(source: &str) -> Result<String, String> {
     let mut program = parse_source(source)?;
     check_program(&mut program, source)?;
-    Ok(emit_ts::emit_js_with_modules(&program, &[]))
+    Ok(emit_ts::emit_js_with_modules(&program, &[], None))
 }
 
 #[wasm_bindgen]
