@@ -4,6 +4,7 @@ use almide::lexer;
 use almide::parser;
 use almide::emit_ts;
 use almide::check;
+use almide::lower;
 use almide::diagnostic;
 
 fn parse_source(source: &str) -> Result<almide::ast::Program, String> {
@@ -13,7 +14,7 @@ fn parse_source(source: &str) -> Result<almide::ast::Program, String> {
     Ok(program)
 }
 
-fn check_program(program: &mut almide::ast::Program, source: &str) -> Result<(), String> {
+fn check_and_lower(program: &mut almide::ast::Program, source: &str) -> Result<almide::ir::IrProgram, String> {
     let mut checker = check::Checker::new();
     let diagnostics = checker.check_program(program);
     let errors: Vec<_> = diagnostics.iter()
@@ -25,21 +26,22 @@ fn check_program(program: &mut almide::ast::Program, source: &str) -> Result<(),
             .collect();
         return Err(msgs.join("\n\n"));
     }
-    Ok(())
+    let ir = lower::lower_program(program, &checker.expr_types, &checker.env);
+    Ok(ir)
 }
 
 #[wasm_bindgen]
 pub fn compile_to_ts(source: &str) -> Result<String, String> {
     let mut program = parse_source(source)?;
-    check_program(&mut program, source)?;
-    Ok(emit_ts::emit_with_modules(&program, &[], None))
+    let ir = check_and_lower(&mut program, source)?;
+    Ok(emit_ts::emit_with_modules(&program, &[], Some(&ir)))
 }
 
 #[wasm_bindgen]
 pub fn compile_to_js(source: &str) -> Result<String, String> {
     let mut program = parse_source(source)?;
-    check_program(&mut program, source)?;
-    Ok(emit_ts::emit_js_with_modules(&program, &[], None))
+    let ir = check_and_lower(&mut program, source)?;
+    Ok(emit_ts::emit_js_with_modules(&program, &[], Some(&ir)))
 }
 
 #[wasm_bindgen]
