@@ -34,14 +34,14 @@ fn check_and_lower(program: &mut almide::ast::Program, source: &str) -> Result<a
 pub fn compile_to_ts(source: &str) -> Result<String, String> {
     let mut program = parse_source(source)?;
     let ir = check_and_lower(&mut program, source)?;
-    Ok(emit_ts::emit_with_modules(&program, &[], Some(&ir)))
+    Ok(emit_ts::emit_with_modules(&ir))
 }
 
 #[wasm_bindgen]
 pub fn compile_to_js(source: &str) -> Result<String, String> {
     let mut program = parse_source(source)?;
     let ir = check_and_lower(&mut program, source)?;
-    Ok(emit_ts::emit_js_with_modules(&program, &[], Some(&ir)))
+    Ok(emit_ts::emit_js_with_modules(&ir))
 }
 
 #[wasm_bindgen]
