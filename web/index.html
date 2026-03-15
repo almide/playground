@@ -347,11 +347,11 @@ type Token =
   | Divider
 
 fn parse_line(line: String) -> Token =
-  if string.starts_with?(line, "### ") then Heading(3, string.slice(line, 4))
-  else if string.starts_with?(line, "## ") then Heading(2, string.slice(line, 3))
-  else if string.starts_with?(line, "# ") then Heading(1, string.slice(line, 2))
-  else if string.starts_with?(line, "- ") then Bullet(string.slice(line, 2))
-  else if string.starts_with?(line, "---") then Divider
+  if string.starts_with(line, "### ") then Heading(3, string.slice(line, 4))
+  else if string.starts_with(line, "## ") then Heading(2, string.slice(line, 3))
+  else if string.starts_with(line, "# ") then Heading(1, string.slice(line, 2))
+  else if string.starts_with(line, "- ") then Bullet(string.slice(line, 2))
+  else if string.starts_with(line, "---") then Divider
   else Paragraph(line)
 
 fn render(token: Token) -> String =
@@ -390,17 +390,17 @@ effect fn main(_args: List[String]) -> Result[Unit, String] = {
   ]
 
   doc
-    |> list.map(fn(line) => parse_line(line))
-    |> list.map(fn(tok) => render(tok))
-    |> list.each(fn(s) => println(s))
+    |> list.map((line) => parse_line(line))
+    |> list.map((tok) => render(tok))
+    |> list.each((s) => println(s))
 
   let fibs = fibonacci(10)
   let visual = fibs
-    |> list.map(fn(n) => "[${int.to_string(n)}]")
+    |> list.map((n) => "[${int.to_string(n)}]")
     |> string.join(" ")
   println("  ${visual}")
 
-  let sum = list.fold(fibs, 0, fn(acc, x) => acc + x)
+  let sum = list.fold(fibs, 0, (acc, x) => acc + x)
   println("  sum = ${int.to_string(sum)}")
 
   // Heredoc + string interpolation
@@ -534,7 +534,7 @@ For:        for x in xs { ... }
 Range:      0..5 = [0,1,2,3,4]   1..=5 = [1,2,3,4,5]
 Do loop:    do { guard cond else ok(()) ... }      (* dynamic break only *)
 Guard:      guard cond else err(msg)               (* early exit *)
-Lambda:     fn(x) => expr
+Lambda:     (x) => expr
 Concat:     "a" ++ "b"   [1] ++ [2]               (* ++ for string AND list *)
 XOR:        a ^ b
 Interp:     "hello \${name}"
@@ -542,7 +542,7 @@ Heredoc:    """\\n  multi-line \${expr}\\n"""
 Raw str:    r"\\d+"                                 (* no escape processing *)
 Let/Var:    let x = 1    var y = 2    y = 3
 Tuple:      (1, "a")
-Pipe:       xs |> list.filter(fn(x) => x > 0)
+Pipe:       xs |> list.filter((x) => x > 0)
 Variant:    type Color = | Red | Blue | Custom(Int, Int, Int)
 Record:     type User = { name: String, age: Int }
 Operators:  + - * / % ^ == != < > <= >= ++ and or not |>
@@ -550,28 +550,28 @@ Operators:  + - * / % ^ == != < > <= >= ++ and or not |>
 ## Stdlib (auto-imported)
 
 string: trim split join len lines chars pad_left pad_right slice contains
-  starts_with? ends_with? to_upper to_lower replace replace_first to_int to_float
+  starts_with ends_with to_upper to_lower replace replace_first to_int to_float
   char_at index_of last_index_of repeat from_bytes to_bytes reverse
-  is_empty? is_digit? is_alpha? is_alphanumeric? is_whitespace?
+  is_empty is_digit is_alpha is_alphanumeric is_whitespace
   strip_prefix strip_suffix count
 
 list: len get get_or set swap first last sort sort_by reverse contains index_of
   any all each map flat_map filter find fold enumerate zip flatten
-  take drop chunk unique join sum product min max is_empty?
+  take drop chunk unique join sum product min max is_empty
   filter_map take_while drop_while count partition reduce group_by
 
 map: new get get_or set contains remove merge keys values len
-  entries from_list is_empty? map_values filter from_entries
+  entries from_list is_empty map_values filter from_entries
 
 int: to_string to_hex band bor bxor bshl bshr bnot clamp
      wrap_add wrap_mul rotate_right rotate_left to_u32 to_u8
 
 float: to_string to_int from_int round floor ceil abs sqrt parse min max clamp
 
-fs (effect): read_text write read_lines append mkdir_p exists? is_dir?
-  is_file? remove list_dir copy rename
+fs (effect): read_text write read_lines append mkdir_p exists is_dir
+  is_file remove list_dir copy rename
 
-path: join dirname basename extension is_absolute?
+path: join dirname basename extension is_absolute
 
 env (effect): unix_timestamp millis args get set cwd sleep_ms
 
@@ -588,10 +588,10 @@ import math   — min max abs pow pi e sin cos tan log exp sqrt
 import random — int float choice shuffle
 import time   — now millis sleep year month day hour minute second
                 weekday to_iso from_parts
-import regex  — match? full_match? find find_all replace replace_first
+import regex  — match full_match find find_all replace replace_first
                 split captures
 import encoding — hex_encode hex_decode base64_encode base64_decode
-import args   — flag? option option_or positional
+import args   — flag option option_or positional
 
 ## Built-in functions (no prefix)
 
@@ -663,7 +663,7 @@ fn fibonacci(n: Int) -> List[Int] = {
 effect fn main(_args: List[String]) -> Result[Unit, String] = {
   let fibs = fibonacci(10)
   let visual = fibs
-    |> list.map(fn(n) => int.to_string(n))
+    |> list.map((n) => int.to_string(n))
     |> string.join(", ")
   println("Fibonacci: \${visual}")
 
