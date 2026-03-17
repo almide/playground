@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "almide"
 version = "0.6.1"
-source = "git+https://github.com/almide/almide.git?branch=develop#85522bd127389eb4d078651b96ebd6512d704c72"
+source = "git+https://github.com/almide/almide.git?branch=develop#9893cbeeb873c18c966ba152aeb27eb5b576dfb7"
 dependencies = [
  "clap",
  "semver",
