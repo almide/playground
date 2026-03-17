@@ -4,8 +4,8 @@ version = 4
 
 [[package]]
 name = "almide"
-version = "0.5.6"
-source = "git+https://github.com/almide/almide.git?branch=main#7d9bf8e0496c317d06eefeb15eee2bc14b81afdf"
+version = "0.6.1"
+source = "git+https://github.com/almide/almide.git?branch=main#b19b40702538d5f43cb1454174c98580c2637392"
 dependencies = [
  "clap",
  "semver",

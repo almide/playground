@@ -1,0 +1,15 @@
+{
+  "name": "almide-playground",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "almide_playground_bg.wasm",
+    "almide_playground.js",
+    "almide_playground.d.ts"
+  ],
+  "main": "almide_playground.js",
+  "types": "almide_playground.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
