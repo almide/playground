@@ -549,19 +549,21 @@ Operators:  + - * / % ^ == != < > <= >= ++ and or not |>
 
 ## Stdlib (auto-imported)
 
-string: trim split join len lines chars pad_left pad_right slice contains
-  starts_with ends_with to_upper to_lower replace replace_first to_int to_float
-  char_at index_of last_index_of repeat from_bytes to_bytes reverse
+string: trim split join len lines chars pad_start pad_end slice contains
+  starts_with ends_with to_upper to_lower replace replace_first
+  get index_of last_index_of repeat from_bytes to_bytes reverse
   is_empty is_digit is_alpha is_alphanumeric is_whitespace
-  strip_prefix strip_suffix count
+  strip_prefix strip_suffix count capitalize codepoint from_codepoint
+  trim_start trim_end
 
 list: len get get_or set swap first last sort sort_by reverse contains index_of
   any all each map flat_map filter find fold enumerate zip flatten
   take drop chunk unique join sum product min max is_empty
   filter_map take_while drop_while count partition reduce group_by
+  insert remove_at find_index update scan intersperse windows dedup zip_with repeat
 
 map: new get get_or set contains remove merge keys values len
-  entries from_list is_empty map_values filter from_entries
+  entries from_list is_empty map filter from_entries
 
 int: to_string to_hex band bor bxor bshl bshr bnot clamp
      wrap_add wrap_mul rotate_right rotate_left to_u32 to_u8
