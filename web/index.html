@@ -356,10 +356,10 @@ fn parse_line(line: String) -> Token =
 
 fn render(token: Token) -> String =
   match token {
-    Heading(1, text) => string.to_upper(text) ++ "\n" ++ string.repeat("=", string.len(text))
-    Heading(_, text) => text ++ "\n" ++ string.repeat("-", string.len(text))
-    Paragraph(text) => "  " ++ text
-    Bullet(text) => "  * " ++ text
+    Heading(1, text) => string.to_upper(text) + "\n" + string.repeat("=", string.len(text))
+    Heading(_, text) => text + "\n" + string.repeat("-", string.len(text))
+    Paragraph(text) => "  " + text
+    Bullet(text) => "  * " + text
     Divider => string.repeat("~", 40)
   }
 
@@ -368,7 +368,7 @@ fn fibonacci(n: Int) -> List[Int] = {
   var b = 1
   var result: List[Int] = []
   for _ in 0..n {
-    result = result ++ [a]
+    result = result + [a]
     let next = a + b
     a = b
     b = next
@@ -535,7 +535,7 @@ Range:      0..5 = [0,1,2,3,4]   1..=5 = [1,2,3,4,5]
 Do loop:    do { guard cond else ok(()) ... }      (* dynamic break only *)
 Guard:      guard cond else err(msg)               (* early exit *)
 Lambda:     (x) => expr
-Concat:     "a" ++ "b"   [1] ++ [2]               (* ++ for string AND list *)
+Concat:     "a" + "b"   [1] + [2]               (* + for string AND list *)
 XOR:        a ^ b
 Interp:     "hello \${name}"
 Heredoc:    """\\n  multi-line \${expr}\\n"""
@@ -545,7 +545,7 @@ Tuple:      (1, "a")
 Pipe:       xs |> list.filter((x) => x > 0)
 Variant:    type Color = | Red | Blue | Custom(Int, Int, Int)
 Record:     type User = { name: String, age: Int }
-Operators:  + - * / % ^ == != < > <= >= ++ and or not |>
+Operators:  + - * / % ^ == != < > <= >= + and or not |>
 
 ## Stdlib (auto-imported)
 
@@ -602,7 +602,7 @@ println(s) eprintln(s) assert_eq(a,b) assert_ne(a,b) assert(cond) unwrap_or(opt,
 ## Rules
 - if-then-else for expressions. else is optional only when then-branch is Unit
 - for...in for iteration (preferred over do+guard)
-- ++ for string/list concat, ^ for XOR, not for boolean negation
+- + for string/list concat, ^ for XOR, not for boolean negation
 - effect fn for side effects, Result[T,E] for errors, Option[T] for nullable
 - All stdlib calls need module prefix: list.map(xs, f), NOT map(xs, f)
 - println only takes String. Use int.to_string(n) or float.to_string(n)
@@ -654,7 +654,7 @@ fn fibonacci(n: Int) -> List[Int] = {
   var b = 1
   var result: List[Int] = []
   for _ in 0..n {
-    result = result ++ [a]
+    result = result + [a]
     let next = a + b
     a = b
     b = next
