@@ -45,7 +45,7 @@ pub fn compile_to_js(source: &str) -> Result<String, String> {
     let mut program = parse_source(source)?;
     let mut ir = check_and_lower(&mut program, source)?;
     mono::monomorphize(&mut ir);
-    Ok(codegen::emit(&mut ir, Target::TypeScript))
+    Ok(codegen::emit(&mut ir, Target::JavaScript))
 }
 
 #[wasm_bindgen]
