@@ -2,9 +2,11 @@ use wasm_bindgen::prelude::*;
 
 use almide::lexer;
 use almide::parser;
-use almide::emit_ts;
+use almide::codegen;
+use almide::codegen::pass::Target;
 use almide::check;
 use almide::lower;
+use almide::mono;
 use almide::diagnostic;
 
 fn parse_source(source: &str) -> Result<almide::ast::Program, String> {
@@ -33,15 +35,17 @@ fn check_and_lower(program: &mut almide::ast::Program, source: &str) -> Result<a
 #[wasm_bindgen]
 pub fn compile_to_ts(source: &str) -> Result<String, String> {
     let mut program = parse_source(source)?;
-    let ir = check_and_lower(&mut program, source)?;
-    Ok(emit_ts::emit_with_modules(&ir))
+    let mut ir = check_and_lower(&mut program, source)?;
+    mono::monomorphize(&mut ir);
+    Ok(codegen::emit(&mut ir, Target::TypeScript))
 }
 
 #[wasm_bindgen]
 pub fn compile_to_js(source: &str) -> Result<String, String> {
     let mut program = parse_source(source)?;
-    let ir = check_and_lower(&mut program, source)?;
-    Ok(emit_ts::emit_js_with_modules(&ir))
+    let mut ir = check_and_lower(&mut program, source)?;
+    mono::monomorphize(&mut ir);
+    Ok(codegen::emit(&mut ir, Target::TypeScript))
 }
 
 #[wasm_bindgen]
