@@ -338,83 +338,47 @@ button.ai:hover:not(:disabled) {
     <div class="panel-header">Source<span id="version-text" class="version-badge"></span></div>
     <div class="editor-wrap">
     <pre class="editor-highlight" id="highlight" aria-hidden="true"></pre>
-    <textarea id="editor" spellcheck="false">// A tiny Markdown-to-text renderer
+    <textarea id="editor" spellcheck="false">// Wave interference — trigonometric ASCII art
+import math
 
-type Token =
-  | Heading(Int, String)
-  | Paragraph(String)
-  | Bullet(String)
-  | Divider
+type Palette = | Bright | Medium | Dim | Faint | Blank
 
-fn parse_line(line: String) -> Token =
-  if string.starts_with(line, "### ") then Heading(3, string.slice(line, 4))
-  else if string.starts_with(line, "## ") then Heading(2, string.slice(line, 3))
-  else if string.starts_with(line, "# ") then Heading(1, string.slice(line, 2))
-  else if string.starts_with(line, "- ") then Bullet(string.slice(line, 2))
-  else if string.starts_with(line, "---") then Divider
-  else Paragraph(line)
+fn classify(v: Float) -> Palette =
+  if v > 1.5 then Bright
+  else if v > 0.5 then Medium
+  else if v > -0.3 then Dim
+  else if v > -1.0 then Faint
+  else Blank
 
-fn render(token: Token) -> String =
-  match token {
-    Heading(1, text) => string.to_upper(text) + "\n" + string.repeat("=", string.len(text))
-    Heading(_, text) => text + "\n" + string.repeat("-", string.len(text))
-    Paragraph(text) => "  " + text
-    Bullet(text) => "  * " + text
-    Divider => string.repeat("~", 40)
-  }
+fn render(p: Palette) -> String =
+  match p { Bright => "@@" Medium => "##"
+            Dim => "++" Faint => "::" Blank => "  " }
 
-fn fibonacci(n: Int) -> List[Int] = {
-  var a = 0
-  var b = 1
-  var result: List[Int] = []
-  for _ in 0..n {
-    result = result + [a]
-    let next = a + b
-    a = b
-    b = next
-  }
-  result
+fn wave(x: Float, y: Float) -> Float = {
+  let ripple = math.sin(math.sqrt(x * x + y * y) * 2.0)
+  let sweep  = math.sin(x * 2.5 + y)
+  let pulse  = math.cos(y * 3.0 - x * 0.5)
+  ripple + sweep + pulse
 }
 
-effect fn main(_args: List[String]) -> Result[Unit, String] = {
-  let doc = [
-    "# Almide",
-    "## A language that compiles to Rust and TypeScript",
-    "---",
-    "- Variant types with pattern matching",
-    "- Pipes, lambdas, and string interpolation",
-    "- Effect system for side effects",
-    "- Compiles to native and web",
-    "---",
-    "## Fibonacci",
-  ]
+fn sample(x: Int) -> Float = wave(x.to_float() / 5.0, 0.0)
 
-  doc
-    |> list.map((line) => parse_line(line))
-    |> list.map((tok) => render(tok))
-    |> list.each((s) => println(s))
-
-  let fibs = fibonacci(10)
-  let visual = fibs
-    |> list.map((n) => "[${int.to_string(n)}]")
-    |> string.join(" ")
-  println("  ${visual}")
-
-  let sum = list.fold(fibs, 0, (acc, x) => acc + x)
-  println("  sum = ${int.to_string(sum)}")
-
-  // Heredoc + string interpolation
-  let lang = "Almide"
-  let target1 = "Rust"
-  let target2 = "TypeScript"
-  let report = """
-    ${lang} compiles to:
-      1. ${target1} (native)
-      2. ${target2} (web)
-    Total targets: ${int.to_string(2)}
-  """
+fn main() -> Unit = {
+  println("  Almide — Wave Interference\n")
+  for row in 0..18 {
+    var line = ""
+    for col in 0..36 {
+      let v = wave(col.to_float() / 5.0, row.to_float() / 3.0)
+      line = line + render(classify(v))
+    }
+    println(line)
+  }
   println("")
-  println(report)
+
+  // Sample the wave along y=0 and count peaks
+  let vals = [0, 6, 12, 18, 24, 30, 35].map((x) => sample(x))
+  let peaks = vals.filter((v) => v > 1.0)
+  println("  ${peaks.len()} peaks along y=0 (amplitude > 1.0)")
 }</textarea>
     </div>
   </div>
