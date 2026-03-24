@@ -2,7 +2,7 @@ use wasm_bindgen::prelude::*;
 
 use almide::lexer;
 use almide::parser;
-use almide::codegen;
+use almide::codegen::{self, CodegenOutput};
 use almide::codegen::pass::Target;
 use almide::check;
 use almide::lower;
@@ -32,20 +32,24 @@ fn check_and_lower(program: &mut almide::ast::Program, source: &str) -> Result<a
     Ok(ir)
 }
 
-#[wasm_bindgen]
-pub fn compile_to_ts(source: &str) -> Result<String, String> {
+fn compile_to_target(source: &str, target: Target) -> Result<String, String> {
     let mut program = parse_source(source)?;
     let mut ir = check_and_lower(&mut program, source)?;
     mono::monomorphize(&mut ir);
-    Ok(codegen::emit(&mut ir, Target::TypeScript))
+    match codegen::codegen(&mut ir, target) {
+        CodegenOutput::Source(code) => Ok(code),
+        CodegenOutput::Binary(_) => Err("Unexpected binary output for text target".to_string()),
+    }
+}
+
+#[wasm_bindgen]
+pub fn compile_to_ts(source: &str) -> Result<String, String> {
+    compile_to_target(source, Target::TypeScript)
 }
 
 #[wasm_bindgen]
 pub fn compile_to_js(source: &str) -> Result<String, String> {
-    let mut program = parse_source(source)?;
-    let mut ir = check_and_lower(&mut program, source)?;
-    mono::monomorphize(&mut ir);
-    Ok(codegen::emit(&mut ir, Target::JavaScript))
+    compile_to_target(source, Target::TypeScript)
 }
 
 #[wasm_bindgen]
