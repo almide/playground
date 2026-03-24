@@ -411,8 +411,13 @@ fn main() -> Unit = {
   <span>Almide Playground</span>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/typescript@5/lib/typescript.min.js"></script>
 <script type="module">
 import init, { compile_to_js, compile_to_ts, parse_to_ast, get_version_info } from './pkg/almide_playground.js';
+
+function stripTypes(tsCode) {
+  return ts.transpile(tsCode, { target: ts.ScriptTarget.ES2020 });
+}
 
 let wasmReady = false;
 
@@ -1004,7 +1009,7 @@ function patchRuntimeForBrowser(js) {
 function captureOutput(js) {
   const lines = [];
   const fakePrintln = (s) => lines.push(String(s));
-  const patched = patchRuntimeForBrowser(js);
+  const patched = patchRuntimeForBrowser(stripTypes(js));
   const wrappedCode = patched + '\nif (typeof main === "function") { main(["playground"]); }';
   try {
     const fn = new Function('__println__', wrappedCode);
