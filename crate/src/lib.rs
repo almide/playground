@@ -53,6 +53,22 @@ pub fn compile_to_js(source: &str) -> Result<String, String> {
 }
 
 #[wasm_bindgen]
+pub fn compile_to_wasm(source: &str) -> Result<Vec<u8>, String> {
+    let mut program = parse_source(source)?;
+    let mut ir = check_and_lower(&mut program, source)?;
+    mono::monomorphize(&mut ir);
+    match codegen::codegen(&mut ir, Target::Wasm) {
+        CodegenOutput::Binary(bytes) => Ok(bytes),
+        CodegenOutput::Source(_) => Err("Unexpected source output for WASM target".to_string()),
+    }
+}
+
+#[wasm_bindgen]
+pub fn compile_to_rust(source: &str) -> Result<String, String> {
+    compile_to_target(source, Target::Rust)
+}
+
+#[wasm_bindgen]
 pub fn get_version_info() -> String {
     format!(
         "almide v{} ({}), playground ({})",
@@ -74,7 +90,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_stdlib_compiles() {
+    fn test_compile_to_wasm() {
         let source = r#"
 let xs = [3, 1, 4, 1, 5]
 let sorted = xs.sort()
@@ -82,26 +98,14 @@ let joined = ["hello", "world"].join(" ")
 println(joined)
 println(sorted.map(fn(x) => x * 2).join(", "))
 "#;
-        let js = compile_to_js(source).unwrap();
-        assert!(js.contains("__almd_list"), "should contain list runtime: {}", &js[..200.min(js.len())]);
+        let wasm = compile_to_wasm(source).unwrap();
+        // WASM magic number: \0asm
+        assert!(wasm.len() > 8, "WASM output should be non-trivial");
+        assert_eq!(&wasm[0..4], b"\0asm", "should start with WASM magic");
     }
 
     #[test]
-    fn test_import_stdlib() {
-        let source = r#"
-import math
-
-let pi = math.pi()
-let abs = math.abs(-42)
-println(pi)
-println(abs)
-"#;
-        let js = compile_to_js(source).unwrap();
-        assert!(js.contains("__almd_math"), "should contain math runtime");
-    }
-
-    #[test]
-    fn test_wave_ascii_art() {
+    fn test_compile_to_wasm_with_math() {
         let source = r##"
 import math
 
@@ -120,20 +124,26 @@ fn main() -> Unit = {
   }
 }
 "##;
-        let js = compile_to_js(source).unwrap();
-        assert!(js.contains("Math.sin"), "should use Math.sin");
-        assert!(js.contains("Math.sqrt"), "should use Math.sqrt");
+        let wasm = compile_to_wasm(source).unwrap();
+        assert_eq!(&wasm[0..4], b"\0asm");
     }
 
     #[test]
-    fn test_string_stdlib() {
+    fn test_compile_to_rust() {
         let source = r#"
 let s = "hello world"
 let upper = s.to_upper()
-let parts = s.split(" ")
 println(upper)
 "#;
-        let js = compile_to_js(source).unwrap();
-        assert!(js.contains("__almd_string"), "should contain string runtime");
+        let rust = compile_to_rust(source).unwrap();
+        assert!(rust.contains("fn main"), "should contain main function");
+    }
+
+    // Keep TS compile tests for backward compatibility
+    #[test]
+    fn test_compile_to_ts_still_works() {
+        let source = "println(\"hello\")";
+        let ts = compile_to_ts(source).unwrap();
+        assert!(!ts.is_empty(), "TS output should be non-empty");
     }
 }

@@ -414,13 +414,8 @@ fn main() -> Unit = {
   <span>Almide Playground</span>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/typescript@5/lib/typescript.min.js"></script>
 <script type="module">
-import init, { compile_to_js, compile_to_ts, parse_to_ast, get_version_info } from './pkg/almide_playground.js';
-
-function stripTypes(tsCode) {
-  return ts.transpile(tsCode, { target: ts.ScriptTarget.ES2020 });
-}
+import init, { compile_to_js, compile_to_ts, compile_to_wasm, compile_to_rust, parse_to_ast, get_version_info } from './pkg/almide_playground.js';
 
 let wasmReady = false;
 
@@ -786,19 +781,113 @@ function renderDiffHtml(diffLines) {
 
 const MAX_REPAIR_ATTEMPTS = 3;
 
-function tryCompileAndRun(source) {
-  let js;
+async function tryCompileAndRun(source) {
+  let wasmBytes, rustSource;
   try {
-    js = compile_to_js(source);
+    wasmBytes = compile_to_wasm(source);
   } catch(e) {
     return { ok: false, error: String(e), phase: 'compile' };
   }
   try {
-    const output = captureOutput(js);
-    return { ok: true, js, output };
+    rustSource = compile_to_rust(source);
   } catch(e) {
-    return { ok: false, error: String(e), js, phase: 'runtime' };
+    // Non-fatal: Rust source is just for display
+    rustSource = '// (Rust source unavailable)';
   }
+  try {
+    const output = await runWasm(wasmBytes);
+    return { ok: true, compiled: rustSource, output };
+  } catch(e) {
+    return { ok: false, error: String(e), compiled: rustSource, phase: 'runtime' };
+  }
+}
+
+async function runWasm(wasmBytes) {
+  const lines = [];
+  // Linear memory for WASI fd_write: read strings from WASM memory
+  let memory;
+
+  function readString(ptr, len) {
+    const bytes = new Uint8Array(memory.buffer, ptr, len);
+    return new TextDecoder().decode(bytes);
+  }
+
+  // Minimal WASI shim — only what Almide programs need
+  const wasi = {
+    fd_write(fd, iovs_ptr, iovs_len, nwritten_ptr) {
+      const view = new DataView(memory.buffer);
+      let totalWritten = 0;
+      for (let i = 0; i < iovs_len; i++) {
+        const ptr = view.getUint32(iovs_ptr + i * 8, true);
+        const len = view.getUint32(iovs_ptr + i * 8 + 4, true);
+        const str = readString(ptr, len);
+        // fd 1 = stdout, fd 2 = stderr — both go to output
+        if (fd === 1 || fd === 2) {
+          // Split by newlines but don't add trailing empty line
+          const parts = str.split('\n');
+          for (let j = 0; j < parts.length; j++) {
+            if (j < parts.length - 1) {
+              lines.push(parts[j]);
+            } else if (parts[j].length > 0) {
+              lines.push(parts[j]);
+            }
+          }
+        }
+        totalWritten += len;
+      }
+      view.setUint32(nwritten_ptr, totalWritten, true);
+      return 0; // success
+    },
+    clock_time_get(id, precision, time_ptr) {
+      const view = new DataView(memory.buffer);
+      const now = BigInt(Date.now()) * 1000000n; // ms → ns
+      view.setBigUint64(time_ptr, now, true);
+      return 0;
+    },
+    proc_exit(code) {
+      if (code !== 0) throw new Error('Process exited with code ' + code);
+    },
+    random_get(buf, len) {
+      const bytes = new Uint8Array(memory.buffer, buf, len);
+      crypto.getRandomValues(bytes);
+      return 0;
+    },
+    // Stubs for fs/io/env operations — not available in browser
+    path_open() { return 44; /* ENOENT */ },
+    fd_read() { return 8; /* EBADF */ },
+    fd_close() { return 0; },
+    fd_seek() { return 0; },
+    fd_prestat_get() { return 8; },
+    fd_prestat_dir_name() { return 8; },
+    environ_get() { return 0; },
+    environ_sizes_get(count_ptr, size_ptr) {
+      const view = new DataView(memory.buffer);
+      view.setUint32(count_ptr, 0, true);
+      view.setUint32(size_ptr, 0, true);
+      return 0;
+    },
+    args_get() { return 0; },
+    args_sizes_get(argc_ptr, argv_buf_size_ptr) {
+      const view = new DataView(memory.buffer);
+      view.setUint32(argc_ptr, 0, true);
+      view.setUint32(argv_buf_size_ptr, 0, true);
+      return 0;
+    },
+  };
+
+  const { instance } = await WebAssembly.instantiate(wasmBytes, {
+    wasi_snapshot_preview1: wasi,
+  });
+  memory = instance.exports.memory;
+
+  // Run _start (WASI entry point)
+  if (instance.exports._start) {
+    instance.exports._start();
+  } else if (instance.exports.main) {
+    instance.exports.main();
+  }
+
+  return lines.join('\n');
 }
 
 window.generateCode = async function() {
@@ -882,7 +971,7 @@ window.generateCode = async function() {
 
     let code = editor.value;
     let prevCode = code;
-    let result = tryCompileAndRun(code);
+    let result = await tryCompileAndRun(code);
     let totalFixes = 0;
 
     if (result.ok) {
@@ -917,7 +1006,7 @@ window.generateCode = async function() {
       syncHighlight();
       code = editor.value;
 
-      result = tryCompileAndRun(code);
+      result = await tryCompileAndRun(code);
 
       if (result.ok) {
         const diff = simpleDiff(prevCode, code);
@@ -936,7 +1025,7 @@ window.generateCode = async function() {
     }
 
     if (result.ok) {
-      compiledEl.textContent = result.js;
+      compiledEl.textContent = result.compiled;
       compiledEl.className = 'output-area';
       if (result.output) {
         repairLog.push({ cls: 'log-ok', label: 'Output', detail: result.output });
@@ -963,74 +1052,14 @@ window.generateCode = async function() {
 
 // --- Compiler / Runner ---
 
-// Patch compiler's Node.js runtime for browser execution.
-// Instead of maintaining a separate polyfill set, we reuse the compiler's
-// runtime as-is and only replace the parts that use Node.js APIs.
-function patchRuntimeForBrowser(js) {
-  let code = js;
-  // Replace Node.js module blocks with browser-safe stubs
-  const browserOverrides = {
-    '__almd_fs': '{ exists(p){throw new Error("fs: not available in browser")}, read_text(p){throw new Error("fs: not available in browser")}, read_bytes(p){throw new Error("fs: not available in browser")}, write(p,s){throw new Error("fs: not available in browser")}, write_bytes(p,b){throw new Error("fs: not available in browser")}, append(p,s){throw new Error("fs: not available in browser")}, mkdir_p(p){throw new Error("fs: not available in browser")}, exists_hdlm_qm_(p){throw new Error("fs: not available in browser")}, read_lines(p){throw new Error("fs: not available in browser")}, remove(p){throw new Error("fs: not available in browser")}, list_dir(p){throw new Error("fs: not available in browser")} }',
-    '__almd_env': '{ unix_timestamp(){return Math.floor(Date.now()/1000)}, args(){return["playground"]}, get(name){return null}, set(name,value){}, cwd(){return "/"}, millis(){return Date.now()}, sleep_ms(ms){} }',
-    '__almd_process': '{ exec(cmd,args){throw new Error("process: not available in browser")}, exit(code){throw new Error("process: not available in browser")}, stdin_lines(){throw new Error("process: not available in browser")} }',
-    '__almd_io': '{ read_line(){throw new Error("io: not available in browser")}, print(s){}, read_all(){throw new Error("io: not available in browser")} }',
-    '__almd_http': '{ async serve(){throw new Error("http: not available in browser")}, response(s,b){return{status:s,body:b,headers:{}}}, json(s,b){return{status:s,body:b,headers:{}}}, with_headers(s,b,h){return{status:s,body:b,headers:h}}, async get(u){throw new Error("http: not available in browser")}, async post(u,b){throw new Error("http: not available in browser")} }',
-  };
-  for (const [mod, stub] of Object.entries(browserOverrides)) {
-    const prefix = 'const ' + mod + ' = ';
-    const start = code.indexOf(prefix);
-    if (start === -1) continue;
-    // Find the end of the object literal (matching };)
-    const objStart = start + prefix.length;
-    let depth = 0, i = objStart;
-    while (i < code.length) {
-      if (code[i] === '{') depth++;
-      else if (code[i] === '}') { depth--; if (depth === 0) break; }
-      else if (code[i] === '"' || code[i] === "'") {
-        const q = code[i]; i++;
-        while (i < code.length && code[i] !== q) { if (code[i] === '\\') i++; i++; }
-      }
-      i++;
-    }
-    code = code.substring(0, objStart) + stub + code.substring(i + 1);
-  }
-  // Replace println/eprintln with output capture
-  code = code.replace(
-    /function println\(s\)\s*\{[^}]*\}/,
-    'function println(s) { __println__(s); }'
-  );
-  code = code.replace(
-    /function eprintln\(s\)\s*\{[^}]*\}/,
-    'function eprintln(s) { __println__(s); }'
-  );
-  // Strip the entry point (we'll add our own)
-  const entryPoint = code.indexOf('// ---- Entry Point ----');
-  if (entryPoint !== -1) code = code.substring(0, entryPoint);
-  return code;
-}
-
-function captureOutput(js) {
-  const lines = [];
-  const fakePrintln = (s) => lines.push(String(s));
-  const patched = patchRuntimeForBrowser(stripTypes(js));
-  const wrappedCode = patched + '\nif (typeof main === "function") { main(["playground"]); }';
-  try {
-    const fn = new Function('__println__', wrappedCode);
-    fn(fakePrintln);
-  } catch(e) {
-    lines.push('[Runtime Error] ' + e.message);
-  }
-  return lines.join('\n');
-}
-
 window.compileCode = function() {
   if (!wasmReady) { alert('Wasm not loaded yet'); return; }
   const source = document.getElementById('editor').value;
   const start = performance.now();
   try {
-    const js = compile_to_js(source);
+    const rust = compile_to_rust(source);
     const elapsed = (performance.now() - start).toFixed(1);
-    document.getElementById('compiled').textContent = js;
+    document.getElementById('compiled').textContent = rust;
     document.getElementById('compiled').className = 'output-area';
     showTab('compiled');
     document.getElementById('status-text').textContent = 'Compiled in ' + elapsed + 'ms';
@@ -1042,18 +1071,18 @@ window.compileCode = function() {
   }
 };
 
-window.runCode = function() {
+window.runCode = async function() {
   if (!wasmReady) { alert('Wasm not loaded yet'); return; }
   const source = document.getElementById('editor').value;
   const outputEl = document.getElementById('output');
   const compiledEl = document.getElementById('compiled');
   const statusText = document.getElementById('status-text');
   const start = performance.now();
-  const result = tryCompileAndRun(source);
+  const result = await tryCompileAndRun(source);
   const elapsed = (performance.now() - start).toFixed(1);
 
   if (result.ok) {
-    if (result.js) compiledEl.textContent = result.js;
+    if (result.compiled) compiledEl.textContent = result.compiled;
     compiledEl.className = 'output-area';
     outputEl.textContent = result.output || '(no output)';
     outputEl.className = 'output-area success';
@@ -1061,7 +1090,7 @@ window.runCode = function() {
     statusText.textContent = 'Ran in ' + elapsed + 'ms';
   } else {
     const phase = result.phase === 'runtime' ? 'Runtime error' : 'Compile error';
-    if (result.js) compiledEl.textContent = result.js;
+    if (result.compiled) compiledEl.textContent = result.compiled;
 
     // Show error with "Fix with AI" button
     outputEl.className = 'output-area error';
@@ -1162,7 +1191,7 @@ window.repairFromRun = async function(originalCode, initialResult) {
       syncHighlight();
       code = editor.value;
 
-      result = tryCompileAndRun(code);
+      result = await tryCompileAndRun(code);
 
       if (result.ok) {
         const diff = simpleDiff(prevCode, code);
@@ -1170,7 +1199,7 @@ window.repairFromRun = async function(originalCode, initialResult) {
         if (result.output) {
           repairLog.push({ cls: 'log-ok', label: 'Output', detail: result.output });
         }
-        if (result.js) compiledEl.textContent = result.js;
+        if (result.compiled) compiledEl.textContent = result.compiled;
         compiledEl.className = 'output-area';
         statusText.textContent = 'Repaired (' + totalFixes + ') & running';
       } else {
