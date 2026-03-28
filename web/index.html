@@ -852,13 +852,40 @@ async function runWasm(wasmBytes) {
       crypto.getRandomValues(bytes);
       return 0;
     },
-    // Stubs for fs/io/env operations — not available in browser
-    path_open() { return 44; /* ENOENT */ },
-    fd_read() { return 8; /* EBADF */ },
+    // Stubs for all wasi_snapshot_preview1 functions not available in browser
+    // File descriptor operations
+    fd_read() { return 8; },
     fd_close() { return 0; },
-    fd_seek() { return 0; },
+    fd_seek() { return 8; },
+    fd_tell() { return 8; },
+    fd_sync() { return 0; },
+    fd_datasync() { return 0; },
+    fd_advise() { return 0; },
+    fd_allocate() { return 0; },
+    fd_fdstat_get() { return 8; },
+    fd_fdstat_set_flags() { return 8; },
+    fd_fdstat_set_rights() { return 8; },
+    fd_filestat_get() { return 8; },
+    fd_filestat_set_size() { return 8; },
+    fd_filestat_set_times() { return 8; },
+    fd_pread() { return 8; },
+    fd_pwrite() { return 8; },
+    fd_readdir() { return 8; },
+    fd_renumber() { return 8; },
     fd_prestat_get() { return 8; },
     fd_prestat_dir_name() { return 8; },
+    // Path operations
+    path_open() { return 44; },
+    path_create_directory() { return 44; },
+    path_filestat_get() { return 44; },
+    path_filestat_set_times() { return 44; },
+    path_link() { return 44; },
+    path_readlink() { return 44; },
+    path_remove_directory() { return 44; },
+    path_rename() { return 44; },
+    path_symlink() { return 44; },
+    path_unlink_file() { return 44; },
+    // Environment
     environ_get() { return 0; },
     environ_sizes_get(count_ptr, size_ptr) {
       const view = new DataView(memory.buffer);
@@ -873,9 +900,13 @@ async function runWasm(wasmBytes) {
       view.setUint32(argv_buf_size_ptr, 0, true);
       return 0;
     },
-    fd_filestat_get() { return 8; /* EBADF */ },
-    fd_fdstat_get() { return 8; },
-    fd_fdstat_set_flags() { return 8; },
+    // Misc
+    poll_oneoff() { return 0; },
+    sched_yield() { return 0; },
+    sock_accept() { return 58; },
+    sock_recv() { return 58; },
+    sock_send() { return 58; },
+    sock_shutdown() { return 58; },
   };
 
   const { instance } = await WebAssembly.instantiate(wasmBytes, {
