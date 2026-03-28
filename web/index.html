@@ -873,6 +873,9 @@ async function runWasm(wasmBytes) {
       view.setUint32(argv_buf_size_ptr, 0, true);
       return 0;
     },
+    fd_filestat_get() { return 8; /* EBADF */ },
+    fd_fdstat_get() { return 8; },
+    fd_fdstat_set_flags() { return 8; },
   };
 
   const { instance } = await WebAssembly.instantiate(wasmBytes, {
