@@ -416,6 +416,7 @@ fn main() -> Unit = {
 
 <script type="module">
 import init, { compile_to_js, compile_to_ts, compile_to_wasm, compile_to_rust, parse_to_ast, get_version_info } from './pkg/almide_playground.js';
+import { WASI, File, OpenFile, ConsoleStdout } from 'https://esm.sh/@bjorn3/browser_wasi_shim@0.4.2';
 
 let wasmReady = false;
 
@@ -804,123 +805,19 @@ async function tryCompileAndRun(source) {
 
 async function runWasm(wasmBytes) {
   const lines = [];
-  // Linear memory for WASI fd_write: read strings from WASM memory
-  let memory;
+  const fds = [
+    new OpenFile(new File([])),                              // fd 0: stdin
+    ConsoleStdout.lineBuffered(line => lines.push(line)),    // fd 1: stdout
+    ConsoleStdout.lineBuffered(line => lines.push(line)),    // fd 2: stderr
+  ];
+  const wasi = new WASI([], [], fds);
 
-  function readString(ptr, len) {
-    const bytes = new Uint8Array(memory.buffer, ptr, len);
-    return new TextDecoder().decode(bytes);
-  }
-
-  // Minimal WASI shim — only what Almide programs need
-  const wasi = {
-    fd_write(fd, iovs_ptr, iovs_len, nwritten_ptr) {
-      const view = new DataView(memory.buffer);
-      let totalWritten = 0;
-      for (let i = 0; i < iovs_len; i++) {
-        const ptr = view.getUint32(iovs_ptr + i * 8, true);
-        const len = view.getUint32(iovs_ptr + i * 8 + 4, true);
-        const str = readString(ptr, len);
-        // fd 1 = stdout, fd 2 = stderr — both go to output
-        if (fd === 1 || fd === 2) {
-          // Split by newlines but don't add trailing empty line
-          const parts = str.split('\n');
-          for (let j = 0; j < parts.length; j++) {
-            if (j < parts.length - 1) {
-              lines.push(parts[j]);
-            } else if (parts[j].length > 0) {
-              lines.push(parts[j]);
-            }
-          }
-        }
-        totalWritten += len;
-      }
-      view.setUint32(nwritten_ptr, totalWritten, true);
-      return 0; // success
-    },
-    clock_time_get(id, precision, time_ptr) {
-      const view = new DataView(memory.buffer);
-      const now = BigInt(Date.now()) * 1000000n; // ms → ns
-      view.setBigUint64(time_ptr, now, true);
-      return 0;
-    },
-    proc_exit(code) {
-      if (code !== 0) throw new Error('Process exited with code ' + code);
-    },
-    random_get(buf, len) {
-      const bytes = new Uint8Array(memory.buffer, buf, len);
-      crypto.getRandomValues(bytes);
-      return 0;
-    },
-    // Stubs for all wasi_snapshot_preview1 functions not available in browser
-    // File descriptor operations
-    fd_read() { return 8; },
-    fd_close() { return 0; },
-    fd_seek() { return 8; },
-    fd_tell() { return 8; },
-    fd_sync() { return 0; },
-    fd_datasync() { return 0; },
-    fd_advise() { return 0; },
-    fd_allocate() { return 0; },
-    fd_fdstat_get() { return 8; },
-    fd_fdstat_set_flags() { return 8; },
-    fd_fdstat_set_rights() { return 8; },
-    fd_filestat_get() { return 8; },
-    fd_filestat_set_size() { return 8; },
-    fd_filestat_set_times() { return 8; },
-    fd_pread() { return 8; },
-    fd_pwrite() { return 8; },
-    fd_readdir() { return 8; },
-    fd_renumber() { return 8; },
-    fd_prestat_get() { return 8; },
-    fd_prestat_dir_name() { return 8; },
-    // Path operations
-    path_open() { return 44; },
-    path_create_directory() { return 44; },
-    path_filestat_get() { return 44; },
-    path_filestat_set_times() { return 44; },
-    path_link() { return 44; },
-    path_readlink() { return 44; },
-    path_remove_directory() { return 44; },
-    path_rename() { return 44; },
-    path_symlink() { return 44; },
-    path_unlink_file() { return 44; },
-    // Environment
-    environ_get() { return 0; },
-    environ_sizes_get(count_ptr, size_ptr) {
-      const view = new DataView(memory.buffer);
-      view.setUint32(count_ptr, 0, true);
-      view.setUint32(size_ptr, 0, true);
-      return 0;
-    },
-    args_get() { return 0; },
-    args_sizes_get(argc_ptr, argv_buf_size_ptr) {
-      const view = new DataView(memory.buffer);
-      view.setUint32(argc_ptr, 0, true);
-      view.setUint32(argv_buf_size_ptr, 0, true);
-      return 0;
-    },
-    // Misc
-    poll_oneoff() { return 0; },
-    sched_yield() { return 0; },
-    sock_accept() { return 58; },
-    sock_recv() { return 58; },
-    sock_send() { return 58; },
-    sock_shutdown() { return 58; },
-  };
-
-  const { instance } = await WebAssembly.instantiate(wasmBytes, {
-    wasi_snapshot_preview1: wasi,
+  const module = await WebAssembly.compile(wasmBytes);
+  const instance = await WebAssembly.instantiate(module, {
+    wasi_snapshot_preview1: wasi.wasiImport,
   });
-  memory = instance.exports.memory;
 
-  // Run _start (WASI entry point)
-  if (instance.exports._start) {
-    instance.exports._start();
-  } else if (instance.exports.main) {
-    instance.exports.main();
-  }
-
+  wasi.start(instance);
   return lines.join('\n');
 }
 
