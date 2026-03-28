@@ -96,7 +96,7 @@ let xs = [3, 1, 4, 1, 5]
 let sorted = xs.sort()
 let joined = ["hello", "world"].join(" ")
 println(joined)
-println(sorted.map(fn(x) => x * 2).join(", "))
+println(sorted.map((x) => x * 2).join(", "))
 "#;
         let wasm = compile_to_wasm(source).unwrap();
         // WASM magic number: \0asm
@@ -131,18 +131,23 @@ fn main() -> Unit = {
     #[test]
     fn test_compile_to_rust() {
         let source = r#"
-let s = "hello world"
-let upper = s.to_upper()
-println(upper)
+fn main() -> Unit = {
+  let s = "hello world";
+  let upper = s.to_upper();
+  println(upper)
+}
 "#;
         let rust = compile_to_rust(source).unwrap();
         assert!(rust.contains("fn main"), "should contain main function");
     }
 
-    // Keep TS compile tests for backward compatibility
     #[test]
     fn test_compile_to_ts_still_works() {
-        let source = "println(\"hello\")";
+        let source = r#"
+fn main() -> Unit = {
+  println("hello")
+}
+"#;
         let ts = compile_to_ts(source).unwrap();
         assert!(!ts.is_empty(), "TS output should be non-empty");
     }
