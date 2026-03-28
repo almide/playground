@@ -22,17 +22,18 @@ Online playground for the [Almide](https://github.com/almide/almide) programming
 │  │  ├─ lower (AST → IR)       │                        │
 │  │  ├─ mono (monomorphize)    │                        │
 │  │  └─ codegen::emit(Target::  │                        │
-│  │     JavaScript)             │                        │
+│  │     Wasm)                   │                        │
 │  └──────────┬───────────────────┘                       │
 │             │                                           │
 │             ▼                                           │
-│  Plain JavaScript (no type annotations)                 │
+│  WASM binary (user program)                             │
 │             │                                           │
 │             ▼                                           │
-│  new Function(code)  ← browser eval                     │
+│  WebAssembly.instantiate()                              │
+│  + browser_wasi_shim (WASI runtime)                     │
 │             │                                           │
 │             ▼                                           │
-│  Output panel (captured println)                        │
+│  Output panel (captured stdout/stderr)                  │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -40,9 +41,14 @@ Online playground for the [Almide](https://github.com/almide/almide) programming
 
 The Almide compiler is written in Rust. `wasm-pack` compiles it to WebAssembly, which runs natively in the browser. No server needed — compilation happens entirely client-side.
 
-### Why Target::JavaScript (not TypeScript)?
+### Execution model
 
-The compiled code is executed via `new Function()` in the browser. The browser's JS engine cannot parse TypeScript type annotations (`: string`, `: number`, etc.), so the playground uses `Target::JavaScript` which emits the same semantics as `Target::TypeScript` but without any type annotations.
+The compiler targets `Target::Wasm`, producing a WASM binary from user code. This binary is instantiated via `WebAssembly.instantiate()` with [browser_wasi_shim](https://github.com/bjorn3/browser_wasi_shim) providing the `wasi_snapshot_preview1` imports. stdout/stderr output is captured via `ConsoleStdout.lineBuffered` and displayed in the output panel.
+
+WASI gives user programs access to:
+- **stdout/stderr** — `println`, `eprintln`
+- **Clock** — `datetime.now()` returns the real wall clock time
+- **Random** — `crypto.getRandomValues()` backed randomness
 
 ### Compilation pipeline in the browser
 
@@ -50,9 +56,8 @@ The compiled code is executed via `new Function()` in the browser. The browser's
 2. **Check**: Type checking (Hindley-Milner with unification)
 3. **Lower**: AST → typed IR (intermediate representation)
 4. **Mono**: Monomorphize row-polymorphic functions
-5. **Codegen**: IR → Nanopass pipeline → Template renderer → JavaScript source
-6. **Runtime**: JS runtime (`runtime/js/*.js`) is prepended to the output
-7. **Execute**: `new Function('__println__', code)` with captured output
+5. **Codegen**: IR → Nanopass pipeline → WASM binary
+6. **Execute**: `WebAssembly.instantiate()` + WASI → `_start()`
 
 ### Key files
 
@@ -61,10 +66,11 @@ crate/
 ├── Cargo.toml        # Depends on almide (git, main branch)
 ├── build.rs          # Extracts version/commit from Cargo.lock
 └── src/lib.rs        # wasm-bindgen exports:
-                      #   compile_to_ts(source) → TypeScript
-                      #   compile_to_js(source) → JavaScript
-                      #   parse_to_ast(source)  → JSON AST
-                      #   get_version_info()    → version string
+                      #   compile_to_wasm(source) → WASM binary
+                      #   compile_to_ts(source)   → TypeScript
+                      #   compile_to_rust(source)  → Rust
+                      #   parse_to_ast(source)     → JSON AST
+                      #   get_version_info()       → version string
 
 web/
 ├── index.html        # Single-file app (editor, output, compiled view)
@@ -89,8 +95,9 @@ This means every release of the compiler automatically updates the playground.
 ## Features
 
 - **Instant compilation** — No server round-trips, everything runs locally
+- **Native WASM execution** — User programs compile to WASM and run via browser_wasi_shim
 - **Live output** — See program output immediately
-- **Compiled JS view** — Inspect the generated code
+- **Compiled view** — Inspect the generated Rust / TypeScript code
 - **AST view** — See the parsed abstract syntax tree
 - **AI code generation** — Generate Almide code via Claude/OpenAI/Gemini API (client-side, BYOK)
 
@@ -110,10 +117,9 @@ cd web && python3 -m http.server 8765
 
 ## Limitations
 
-- Only the JavaScript backend is available (no Rust codegen — can't run `rustc` in browser)
-- File I/O (`fs.*`) is not available in the browser sandbox
-- `env.args()` and `process.exec()` are stubbed out
-- `Deno.test` is replaced with inline IIFE for test blocks
+- File I/O (`fs.*`) is not available in the browser sandbox (WASI stubs return errors)
+- `env.args()` and `process.exec()` are not available
+- Network access (`http.*`) is not available from within WASM
 
 ## License
 
