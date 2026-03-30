@@ -341,47 +341,67 @@ button.ai:hover:not(:disabled) {
     <div class="panel-header">Source<span id="version-text" class="version-badge"></span></div>
     <div class="editor-wrap">
     <pre class="editor-highlight" id="highlight" aria-hidden="true"></pre>
-    <textarea id="editor" spellcheck="false">// Wave interference — trigonometric ASCII art
-import math
+    <textarea id="editor" spellcheck="false">// Conway's Game of Life
 
-type Palette = | Bright | Medium | Dim | Faint | Blank
+type Cell = | Alive | Dead
 
-fn classify(v: Float) -> Palette =
-  if v > 1.5 then Bright
-  else if v > 0.5 then Medium
-  else if v > -0.3 then Dim
-  else if v > -1.0 then Faint
-  else Blank
+fn glyph(c: Cell) -> String = match c { Alive => "██" Dead => "  " }
 
-fn render(p: Palette) -> String =
-  match p { Bright => "@@" Medium => "##"
-            Dim => "++" Faint => "::" Blank => "  " }
-
-fn wave(x: Float, y: Float) -> Float = {
-  let ripple = math.sin(math.sqrt(x * x + y * y) * 2.0)
-  let sweep  = math.sin(x * 2.5 + y)
-  let pulse  = math.cos(y * 3.0 - x * 0.5)
-  ripple + sweep + pulse
+fn at(g: List[List[Cell]], r: Int, c: Int) -> Cell = {
+  let rows = list.len(g)
+  let cols = list.len(list.get_or(g, 0, []))
+  list.get_or(list.get_or(g, (r + rows) % rows, []), (c + cols) % cols, Dead)
 }
 
-fn sample(x: Int) -> Float = wave(x.to_float() / 5.0, 0.0)
+fn neighbors(g: List[List[Cell]], r: Int, c: Int) -> Int =
+  [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
+    |> list.map((d: (Int, Int)) => {
+      let (dr, dc) = d
+      match at(g, r + dr, c + dc) { Alive => 1 Dead => 0 }
+    })
+    |> list.sum
+
+fn tick(g: List[List[Cell]]) -> List[List[Cell]] =
+  g |> list.enumerate |> list.map((row: (Int, List[Cell])) => {
+    let (r, cells) = row
+    cells |> list.enumerate |> list.map((col: (Int, Cell)) => {
+      let (c, cell) = col
+      let n = neighbors(g, r, c)
+      match cell {
+        Alive => if n == 2 or n == 3 then Alive else Dead
+        Dead  => if n == 3 then Alive else Dead
+      }
+    })
+  })
+
+fn show(g: List[List[Cell]]) -> String =
+  g |> list.map((row) => list.map(row, glyph) |> list.join(""))
+    |> list.join("\n")
 
 fn main() -> Unit = {
-  println("  Almide — Wave Interference\n")
-  for row in 0..18 {
-    var line = ""
-    for col in 0..36 {
-      let v = wave(col.to_float() / 5.0, row.to_float() / 3.0)
-      line = line + render(classify(v))
-    }
-    println(line)
-  }
-  println("")
+  let o = Dead
+  let x = Alive
+  let grid = [
+    [o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o],
+    [o,o,x,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o],
+    [o,o,o,x,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o],
+    [o,x,x,x,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o],
+    [o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o],
+    [o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o],
+    [o,o,o,o,o,o,o,o,o,o,x,o,o,o,o,o,o,o,o,o],
+    [o,o,o,o,o,o,o,o,o,o,x,o,o,o,o,o,o,o,o,o],
+    [o,o,o,o,o,o,o,o,o,o,x,o,o,o,o,o,o,o,o,o],
+    [o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o],
+    [o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o,o],
+  ]
 
-  // Sample the wave along y=0 and count peaks
-  let vals = [0, 6, 12, 18, 24, 30, 35].map((x) => sample(x))
-  let peaks = vals.filter((v) => v > 1.0)
-  println("  ${peaks.len()} peaks along y=0 (amplitude > 1.0)")
+  var state = grid
+  for gen in 0..8 {
+    println("Gen ${int.to_string(gen)}")
+    println(show(state))
+    println("")
+    state = tick(state)
+  }
 }</textarea>
     </div>
   </div>
