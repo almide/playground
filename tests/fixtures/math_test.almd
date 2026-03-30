@@ -1,0 +1,7 @@
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  assert_eq(math.min(3, 7), 3)
+  assert_eq(math.max(3, 7), 7)
+  assert_eq(math.abs(-5), 5)
+  assert_eq(math.pow(2, 10), 1024)
+  println("math: ok")
+}

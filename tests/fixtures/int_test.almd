@@ -1,0 +1,12 @@
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  assert_eq(int.to_string(42), "42")
+  assert_eq(int.to_string(-1), "-1")
+  assert_eq(int.to_hex(255), "ff")
+  assert_eq(int.to_hex(0), "0")
+  assert_eq(int.band(6, 3), 2)
+  assert_eq(int.bor(4, 2), 6)
+  assert_eq(int.bxor(5, 3), 6)
+  assert_eq(int.to_u8(256), 0)
+  assert_eq(int.to_u8(255), 255)
+  println("int: ok")
+}

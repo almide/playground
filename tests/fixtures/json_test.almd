@@ -1,0 +1,11 @@
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  let j = json.parse("{\"name\":\"Almide\",\"version\":1}")
+  assert_eq(json.get_string(j, "name"), some("Almide"))
+  assert_eq(json.get_int(j, "version"), some(1))
+  assert_eq(json.get_string(j, "missing"), none)
+  assert_eq(json.keys(j), ["name", "version"])
+  assert_eq(json.stringify(json.from_string("hello")), "\"hello\"")
+  assert_eq(json.stringify(json.from_int(42)), "42")
+  assert_eq(json.stringify(json.from_bool(true)), "true")
+  println("json: ok")
+}

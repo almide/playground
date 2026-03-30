@@ -1,0 +1,12 @@
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  assert(regex.match?(r"\d+", "abc123"))
+  assert(regex.full_match?(r"\d+", "123"))
+  assert(not regex.full_match?(r"\d+", "abc123"))
+  assert_eq(regex.find(r"\d+", "abc123def"), some("123"))
+  assert_eq(regex.find_all(r"\d+", "a1b22c333"), ["1", "22", "333"])
+  assert_eq(regex.replace(r"\d", "a1b2c3", "X"), "aXbXcX")
+  assert_eq(regex.replace_first(r"\d", "a1b2c3", "X"), "aXb2c3")
+  assert_eq(regex.split(r",\s*", "a, b,c, d"), ["a", "b", "c", "d"])
+  assert_eq(regex.captures(r"(\d{4})-(\d{2})-(\d{2})", "2026-03-09"), some(["2026", "03", "09"]))
+  println("regex: ok")
+}

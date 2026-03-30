@@ -1,0 +1,13 @@
+effect fn main(_args: List[String]) -> Result[Unit, String] = {
+  assert_eq(float.to_string(3.14), "3.14")
+  assert_eq(float.to_int(3.7), 3)
+  assert_eq(float.to_int(-2.9), -2)
+  assert_eq(float.round(2.5), 3)
+  assert_eq(float.floor(2.9), 2)
+  assert_eq(float.ceil(2.1), 3)
+  assert_eq(float.abs(-5.0), 5.0)
+  assert_eq(float.sqrt(4.0), 2.0)
+  assert_eq(float.parse("3.14"), 3.14)
+  assert_eq(float.from_int(42), 42.0)
+  println("float: ok")
+}
