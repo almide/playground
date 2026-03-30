@@ -345,43 +345,32 @@ button.ai:hover:not(:disabled) {
 
 type Shape = | Triangle | Diamond | Wave | Spacer
 
-fn triangle(w: Int) -> List[String] = {
-  var lines: List[String] = []
-  for i in 0..w {
-    let pad = string.repeat("  ", w - i - 1)
-    let stars = string.repeat("██", i + 1)
-    lines = lines + [pad + stars]
-  }
-  lines
-}
+fn triangle(w: Int) -> List[String] =
+  0..w |> list.map((i) =>
+    string.repeat("  ", w - i - 1) + string.repeat("██", i + 1)
+  )
 
 fn diamond(w: Int) -> List[String] = {
-  var lines: List[String] = []
-  for i in 0..w {
-    lines = lines + [string.repeat(" ", w - i - 1) + string.repeat("◆ ", i + 1)]
-  }
+  let top = 0..w |> list.map((i) =>
+    string.repeat(" ", w - i - 1) + string.repeat("◆ ", i + 1)
+  )
   let half = w - 1
-  for i in 0..half {
-    lines = lines + [string.repeat(" ", i + 2) + string.repeat("◆ ", half - i)]
-  }
-  lines
+  let bot = 0..half |> list.map((i) =>
+    string.repeat(" ", i + 2) + string.repeat("◆ ", half - i)
+  )
+  top + bot
 }
 
-fn wave(w: Int) -> List[String] = {
-  var lines: List[String] = []
-  for row in 0..3 {
-    var line = ""
-    for col in 0..w {
+fn wave(w: Int) -> List[String] =
+  0..3 |> list.map((row) =>
+    0..w |> list.map((col) => {
       let v = (row + col) % 4
-      line = line + if v == 0 then "╱╲"
-        else if v == 1 then "──"
-        else if v == 2 then "╲╱"
-        else "  "
-    }
-    lines = lines + [line]
-  }
-  lines
-}
+      if v == 0 then "╱╲"
+      else if v == 1 then "──"
+      else if v == 2 then "╲╱"
+      else "  "
+    }) |> list.join("")
+  )
 
 fn render(shape: Shape, w: Int) -> List[String] =
   match shape {
@@ -391,11 +380,10 @@ fn render(shape: Shape, w: Int) -> List[String] =
     Spacer   => [""]
   }
 
-fn main() -> Unit = {
+fn main() -> Unit =
   [Triangle, Spacer, Diamond, Spacer, Wave]
     |> list.flat_map((s) => render(s, 8))
-    |> list.each((line) => println(line))
-}</textarea>
+    |> list.each((line) => println(line))</textarea>
     </div>
   </div>
   <div class="panel">
