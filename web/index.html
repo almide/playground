@@ -415,7 +415,7 @@ fn main() -> Unit = {
 </div>
 
 <script type="module">
-import init, { compile_to_js, compile_to_ts, compile_to_wasm, compile_to_rust, parse_to_ast, get_version_info } from './pkg/almide_playground.js';
+import init, { compile_to_wasm, compile_to_rust, parse_to_ast, get_version_info } from './pkg/almide_playground.js';
 import { WASI, File, OpenFile, ConsoleStdout } from 'https://esm.sh/@bjorn3/browser_wasi_shim@0.4.2';
 
 let wasmReady = false;

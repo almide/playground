@@ -32,26 +32,6 @@ fn check_and_lower(program: &mut almide::ast::Program, source: &str) -> Result<a
     Ok(ir)
 }
 
-fn compile_to_target(source: &str, target: Target) -> Result<String, String> {
-    let mut program = parse_source(source)?;
-    let mut ir = check_and_lower(&mut program, source)?;
-    mono::monomorphize(&mut ir);
-    match codegen::codegen(&mut ir, target) {
-        CodegenOutput::Source(code) => Ok(code),
-        CodegenOutput::Binary(_) => Err("Unexpected binary output for text target".to_string()),
-    }
-}
-
-#[wasm_bindgen]
-pub fn compile_to_ts(source: &str) -> Result<String, String> {
-    compile_to_target(source, Target::TypeScript)
-}
-
-#[wasm_bindgen]
-pub fn compile_to_js(source: &str) -> Result<String, String> {
-    compile_to_target(source, Target::TypeScript)
-}
-
 #[wasm_bindgen]
 pub fn compile_to_wasm(source: &str) -> Result<Vec<u8>, String> {
     let mut program = parse_source(source)?;
@@ -65,7 +45,13 @@ pub fn compile_to_wasm(source: &str) -> Result<Vec<u8>, String> {
 
 #[wasm_bindgen]
 pub fn compile_to_rust(source: &str) -> Result<String, String> {
-    compile_to_target(source, Target::Rust)
+    let mut program = parse_source(source)?;
+    let mut ir = check_and_lower(&mut program, source)?;
+    mono::monomorphize(&mut ir);
+    match codegen::codegen(&mut ir, Target::Rust) {
+        CodegenOutput::Source(code) => Ok(code),
+        CodegenOutput::Binary(_) => Err("Unexpected binary output for Rust target".to_string()),
+    }
 }
 
 #[wasm_bindgen]
@@ -141,14 +127,4 @@ fn main() -> Unit = {
         assert!(rust.contains("fn main"), "should contain main function");
     }
 
-    #[test]
-    fn test_compile_to_ts_still_works() {
-        let source = r#"
-fn main() -> Unit = {
-  println("hello")
-}
-"#;
-        let ts = compile_to_ts(source).unwrap();
-        assert!(!ts.is_empty(), "TS output should be non-empty");
-    }
 }
