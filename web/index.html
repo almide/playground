@@ -341,45 +341,60 @@ button.ai:hover:not(:disabled) {
     <div class="panel-header">Source<span id="version-text" class="version-badge"></span></div>
     <div class="editor-wrap">
     <pre class="editor-highlight" id="highlight" aria-hidden="true"></pre>
-    <textarea id="editor" spellcheck="false">// Mandelbrot set — ASCII fractal
+    <textarea id="editor" spellcheck="false">// Shape renderer — variant types + pattern matching + pipes
 
-fn iterate(cr: Float, ci: Float) -> Int = {
-  var zr = 0.0
-  var zi = 0.0
-  var n = 0
-  var escaped = false
-  for _ in 0..80 {
-    if not escaped then {
-      let tr = zr * zr - zi * zi + cr
-      let ti = 2.0 * zr * zi + ci
-      zr = tr
-      zi = ti
-      if zr * zr + zi * zi > 4.0 then escaped = true
-      else n = n + 1
-    }
+type Shape = | Triangle | Diamond | Wave | Spacer
+
+fn triangle(w: Int) -> List[String] = {
+  var lines: List[String] = []
+  for i in 0..w {
+    let pad = string.repeat("  ", w - i - 1)
+    let stars = string.repeat("██", i + 1)
+    lines = lines + [pad + stars]
   }
-  n
+  lines
 }
 
-fn shade(n: Int) -> String =
-  if n >= 80 then "██"
-  else if n >= 40 then "▓▓"
-  else if n >= 20 then "▒▒"
-  else if n >= 10 then "░░"
-  else if n >= 5  then "::"
-  else if n >= 3  then ".."
-  else "  "
+fn diamond(w: Int) -> List[String] = {
+  var lines: List[String] = []
+  for i in 0..w {
+    lines = lines + [string.repeat(" ", w - i - 1) + string.repeat("◆ ", i + 1)]
+  }
+  let half = w - 1
+  for i in 0..half {
+    lines = lines + [string.repeat(" ", i + 2) + string.repeat("◆ ", half - i)]
+  }
+  lines
+}
+
+fn wave(w: Int) -> List[String] = {
+  var lines: List[String] = []
+  for row in 0..3 {
+    var line = ""
+    for col in 0..w {
+      let v = (row + col) % 4
+      line = line + if v == 0 then "╱╲"
+        else if v == 1 then "──"
+        else if v == 2 then "╲╱"
+        else "  "
+    }
+    lines = lines + [line]
+  }
+  lines
+}
+
+fn render(shape: Shape, w: Int) -> List[String] =
+  match shape {
+    Triangle => triangle(w)
+    Diamond  => diamond(w)
+    Wave     => wave(w)
+    Spacer   => [""]
+  }
 
 fn main() -> Unit = {
-  for row in 0..30 {
-    var line = ""
-    for col in 0..60 {
-      let cr = (col.to_float() - 40.0) / 20.0
-      let ci = (row.to_float() - 15.0) / 10.0
-      line = line + shade(iterate(cr, ci))
-    }
-    println(line)
-  }
+  [Triangle, Spacer, Diamond, Spacer, Wave]
+    |> list.flat_map((s) => render(s, 8))
+    |> list.each((line) => println(line))
 }</textarea>
     </div>
   </div>
