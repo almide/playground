@@ -381,9 +381,9 @@ fn render(shape: Shape, w: Int) -> List[String] =
   }
 
 fn main() -> Unit =
-  [Triangle, Spacer, Diamond, Spacer, Wave]
+  let lines = [Triangle, Spacer, Diamond, Spacer, Wave]
     |> list.flat_map((s) => render(s, 8))
-    |> list.each((line) => println(line))</textarea>
+  for line in lines { println(line) }</textarea>
     </div>
   </div>
   <div class="panel">
@@ -526,7 +526,7 @@ string: trim split join len lines chars pad_start pad_end slice contains
   trim_start trim_end
 
 list: len get get_or set swap first last sort sort_by reverse contains index_of
-  any all each map flat_map filter find fold enumerate zip flatten
+  any all map flat_map filter find fold enumerate zip flatten
   take drop chunk unique join sum product min max is_empty
   filter_map take_while drop_while count partition reduce group_by
   insert remove_at find_index update scan intersperse windows dedup zip_with repeat
@@ -596,7 +596,7 @@ println(s) eprintln(s) assert_eq(a,b) assert_ne(a,b) assert(cond) unwrap_or(opt,
 
 ## Common mistakes — DO NOT
 - list[1,2,3] → WRONG. Write [1,2,3]
-- each(xs,f) → WRONG. Write list.each(xs,f)
+- each(xs,f) → WRONG. Use for loop: for x in xs { f(x) }
 - map[K,V] as value → WRONG. Write map.new()
 - println(42) → WRONG. Write println(int.to_string(42))
 - List.new() → WRONG. Write []. No new() for List
