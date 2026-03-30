@@ -18,7 +18,6 @@ fn parse_source(source: &str) -> Result<almide::ast::Program, String> {
 
 fn check_and_lower(program: &mut almide::ast::Program, source: &str) -> Result<almide::ir::IrProgram, String> {
     let mut checker = check::Checker::new();
-    checker.install_import_table(program);
     let diagnostics = checker.check_program(program);
     let errors: Vec<_> = diagnostics.iter()
         .filter(|d| d.level == diagnostic::Level::Error)
