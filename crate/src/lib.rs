@@ -4,6 +4,7 @@ use almide::lexer;
 use almide::parser;
 use almide::codegen::{self, CodegenOutput};
 use almide::codegen::pass::Target;
+use almide::canonicalize;
 use almide::check;
 use almide::lower;
 use almide::mono;
@@ -17,18 +18,20 @@ fn parse_source(source: &str) -> Result<almide::ast::Program, String> {
 }
 
 fn check_and_lower(program: &mut almide::ast::Program, source: &str) -> Result<almide::ir::IrProgram, String> {
-    let mut checker = check::Checker::new();
-    let diagnostics = checker.check_program(program);
+    let canon = canonicalize::canonicalize_program(program, std::iter::empty());
+    let mut checker = check::Checker::from_env(canon.env);
+    checker.diagnostics = canon.diagnostics;
+    let diagnostics = checker.infer_program(program);
     let errors: Vec<_> = diagnostics.iter()
         .filter(|d| d.level == diagnostic::Level::Error)
         .collect();
     if !errors.is_empty() {
         let msgs: Vec<String> = errors.iter()
-            .map(|d| d.display_with_source(source))
+            .map(|d: &&diagnostic::Diagnostic| d.display_with_source(source))
             .collect();
         return Err(msgs.join("\n\n"));
     }
-    let ir = lower::lower_program(program, &checker.expr_types, &checker.env);
+    let ir = lower::lower_program(program, &checker.env, &checker.type_map);
     Ok(ir)
 }
 
