@@ -27,7 +27,7 @@ fn check_and_lower(program: &mut almide::ast::Program, source: &str) -> Result<a
         .collect();
     if !errors.is_empty() {
         let msgs: Vec<String> = errors.iter()
-            .map(|d: &&diagnostic::Diagnostic| d.display_with_source(source))
+            .map(|d: &&diagnostic::Diagnostic| d.display())
             .collect();
         return Err(msgs.join("\n\n"));
     }
