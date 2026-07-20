@@ -37,13 +37,14 @@ fn check_and_lower(program: &mut almide::ast::Program, source: &str) -> Result<a
 
 #[wasm_bindgen]
 pub fn compile_to_wasm(source: &str) -> Result<Vec<u8>, String> {
-    let mut program = parse_source(source)?;
-    let mut ir = check_and_lower(&mut program, source)?;
-    mono::monomorphize(&mut ir);
-    match codegen::codegen(&mut ir, Target::Wasm) {
-        CodegenOutput::Binary(bytes) => Ok(bytes),
-        CodegenOutput::Source(_) => Err("Unexpected source output for WASM target".to_string()),
-    }
+    // v0's Target::Wasm emitter was retired (almide#782) and now hits
+    // `unreachable!()`. The only live wasm codegen path is the v1
+    // trust-spine renderer in almide-mir, which does its own parse/check/
+    // lower internally — same entry as almide's native `--target wasm` CLI
+    // and its browser-ABI determinism harness (tools/wasmgen-harness-uu).
+    let wat_text = almide_mir::pipeline::try_render_wasm_source(source, &[], false)
+        .map_err(|e| format!("{e:?}"))?;
+    wat::parse_str(&wat_text).map_err(|e| format!("wat: {e}"))
 }
 
 #[wasm_bindgen]
@@ -80,12 +81,17 @@ mod tests {
 
     #[test]
     fn test_compile_to_wasm() {
+        // v1's wasm subset requires an explicit `fn main`; bare top-level
+        // statements were never valid Almide grammar (verified against the
+        // native CLI), and `List[Int].join` needs an explicit to_string map.
         let source = r#"
-let xs = [3, 1, 4, 1, 5]
-let sorted = xs.sort()
-let joined = ["hello", "world"].join(" ")
-println(joined)
-println(sorted.map((x) => x * 2).join(", "))
+fn main() -> Unit = {
+  let xs = [3, 1, 4, 1, 5]
+  let sorted = xs.sort()
+  let joined = ["hello", "world"].join(" ")
+  println(joined)
+  println(sorted.map((x) => int.to_string(x * 2)).join(", "))
+}
 "#;
         let wasm = compile_to_wasm(source).unwrap();
         // WASM magic number: \0asm

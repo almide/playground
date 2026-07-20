@@ -11,3 +11,13 @@ wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 almide = { git = "https://github.com/almide/almide.git", branch = "main" }
+# The v0 wasm emitter was retired (almide#782): `almide::codegen::codegen(_,
+# Target::Wasm)` now hits an honest `unreachable!()` instead of emitting code.
+# The only live wasm codegen path is the v1 trust-spine renderer, exposed by
+# almide-mir directly (the SAME entry the native CLI's `--target wasm` and
+# almide's own browser-ABI determinism harness — tools/wasmgen-harness-uu —
+# use). almide keeps almide-mir as a normal path dep of its own workspace, so
+# pulling the SAME git rev here (not a separate resolution) keeps the two in
+# lockstep.
+almide-mir = { git = "https://github.com/almide/almide.git", branch = "main" }
+wat = "1"
