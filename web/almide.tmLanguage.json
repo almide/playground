@@ -61,15 +61,15 @@
       "patterns": [
         {
           "name": "keyword.control.almide",
-          "match": "\\b(if|then|else|match|guard|for|in|while|break|continue)\\b"
+          "match": "\\b(if|then|else|match|guard|for|in|while|break|continue|fan)\\b"
         },
         {
           "name": "keyword.declaration.almide",
-          "match": "\\b(module|import|type|fn|let|var|trait|impl|test|newtype)\\b"
+          "match": "\\b(module|import|type|fn|let|var|protocol|test)\\b"
         },
         {
           "name": "keyword.modifier.almide",
-          "match": "\\b(effect|async|await|pub|strict|deriving|unsafe)\\b"
+          "match": "\\b(effect|pub|strict|local|mod)\\b"
         },
         {
           "name": "keyword.operator.logical.almide",
@@ -77,7 +77,7 @@
         },
         {
           "name": "keyword.other.almide",
-          "match": "\\b(ok|err|some|none|try|todo)\\b"
+          "match": "\\b(ok|err|some|none|todo)\\b"
         }
       ]
     },
