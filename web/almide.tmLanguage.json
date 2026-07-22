@@ -69,7 +69,7 @@
         },
         {
           "name": "keyword.modifier.almide",
-          "match": "\\b(effect|pub|strict|local|mod)\\b"
+          "match": "\\b(effect|pub|strict|local|mod|mut)\\b"
         },
         {
           "name": "keyword.operator.logical.almide",
