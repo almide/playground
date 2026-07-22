@@ -1202,10 +1202,10 @@ window.showTab = function(name) {
 let shikiHighlighter = null;
 
 const HL_KEYWORDS = new Set([
-  'import','type','fn','let','var','if','then','else','match',
-  'effect','do','guard','ok','err','some','none','try','strict','pub',
-  'deriving','test','async','await','newtype','for','in','trait','impl','unsafe',
-  'and','or','not','local','mod','module','return','todo','extern',
+  'module','import','type','protocol','for','in','fn','let','var','mut',
+  'if','then','else','match','ok','err','some','none','todo',
+  'not','and','or','strict','pub','effect','test',
+  'guard','break','continue','while','local','mod','fan',
 ]);
 const HL_BOOLS = new Set(['true','false']);
 const HL_BUILTINS = new Set(['println','eprintln','assert','assert_eq','assert_ne','unwrap_or']);
