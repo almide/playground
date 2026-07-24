@@ -1,16 +1,22 @@
 #!/usr/bin/env node
 // Almide Playground — Behavioral Test Runner
 //
-// Compiles .almd fixtures with the real compiler, then runs the output
-// through the same browser-patching logic as the playground.
-// This catches any drift between compiler runtime and playground execution.
+// The playground compiles user code to WASM in the browser via the SAME v1
+// trust-spine entry the CLI uses (`almide_mir::pipeline::try_render_wasm_source`,
+// see crate/src/lib.rs) and executes it under a stock WASI preview1 shim.
+// So the drift check is exactly the compiler's own cross-target promise:
+// each fixture must produce byte-identical stdout on the native target and
+// on `--target wasm` (compiled + executed through the CLI's wasmtime path).
+//
+// The old JS-runtime patching harness died with the TS backend (2026-03-28);
+// there is nothing to patch anymore — WASI is WASI.
 //
 // Usage:
 //   node tests/run.mjs              # Run all fixtures
-//   node tests/run.mjs --fixture X  # Run single fixture
+//   node tests/run.mjs --fixture X  # Run single fixture (name without .almd)
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -20,146 +26,92 @@ const ALMIDE_BIN =
   process.env.ALMIDE_BIN || join(homedir(), ".local/almide/almide");
 const FIXTURES_DIR = resolve(__dirname, "fixtures");
 
-// ── Browser patching (mirrors patchRuntimeForBrowser in index.html) ──
+// Fixtures that currently hit an honest v1 wall on the wasm target.
+// This list is a RATCHET: an entry here must STILL wall (so the harness
+// fails loudly when the compiler brick lands and the entry must be removed),
+// and any fixture NOT listed here must pass on both targets.
+//
+// path_test: `import path` (bundled sibling module) is outside the
+// MIR-lowering subset — the multi-module wasm linking gap.
+const KNOWN_WASM_WALLS = new Set(["path_test.almd"]);
 
-const BROWSER_OVERRIDES = {
-  __almd_fs:
-    '{ exists(p){throw new Error("fs: not available in browser")}, read_text(p){throw new Error("fs: not available in browser")}, read_bytes(p){throw new Error("fs: not available in browser")}, write(p,s){throw new Error("fs: not available in browser")}, write_bytes(p,b){throw new Error("fs: not available in browser")}, append(p,s){throw new Error("fs: not available in browser")}, mkdir_p(p){throw new Error("fs: not available in browser")}, exists_hdlm_qm_(p){throw new Error("fs: not available in browser")}, read_lines(p){throw new Error("fs: not available in browser")}, remove(p){throw new Error("fs: not available in browser")}, list_dir(p){throw new Error("fs: not available in browser")} }',
-  __almd_env:
-    '{ unix_timestamp(){return Math.floor(Date.now()/1000)}, args(){return["playground"]}, get(name){return null}, set(name,value){}, cwd(){return "/"}, millis(){return Date.now()}, sleep_ms(ms){} }',
-  __almd_process:
-    '{ exec(cmd,args){throw new Error("process: not available in browser")}, exit(code){throw new Error("process: not available in browser")}, stdin_lines(){throw new Error("process: not available in browser")} }',
-  __almd_io:
-    '{ read_line(){throw new Error("io: not available in browser")}, print(s){}, read_all(){throw new Error("io: not available in browser")} }',
-  __almd_http:
-    '{ async serve(){throw new Error("http: not available in browser")}, response(s,b){return{status:s,body:b,headers:{}}}, json(s,b){return{status:s,body:b,headers:{}}}, with_headers(s,b,h){return{status:s,body:b,headers:h}}, async get(u){throw new Error("http: not available in browser")}, async post(u,b){throw new Error("http: not available in browser")} }',
-};
-
-function patchRuntimeForBrowser(js) {
-  let code = js;
-  for (const [mod, stub] of Object.entries(BROWSER_OVERRIDES)) {
-    const prefix = "const " + mod + " = ";
-    const start = code.indexOf(prefix);
-    if (start === -1) continue;
-    const objStart = start + prefix.length;
-    let depth = 0,
-      i = objStart;
-    while (i < code.length) {
-      if (code[i] === "{") depth++;
-      else if (code[i] === "}") {
-        depth--;
-        if (depth === 0) break;
-      } else if (code[i] === '"' || code[i] === "'") {
-        const q = code[i];
-        i++;
-        while (i < code.length && code[i] !== q) {
-          if (code[i] === "\\") i++;
-          i++;
-        }
-      }
-      i++;
-    }
-    code = code.substring(0, objStart) + stub + code.substring(i + 1);
+function run(args) {
+  try {
+    const stdout = execFileSync(ALMIDE_BIN, args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 120_000,
+    });
+    return { ok: true, stdout: stdout.trimEnd() };
+  } catch (e) {
+    return {
+      ok: false,
+      stdout: (e.stdout || "").toString().trimEnd(),
+      stderr: (e.stderr || "").toString().trimEnd(),
+    };
   }
-  code = code.replace(
-    /function println\(s\)\s*\{[^}]*\}/,
-    "function println(s) { __println__(s); }",
-  );
-  code = code.replace(
-    /function eprintln\(s\)\s*\{[^}]*\}/,
-    "function eprintln(s) { __println__(s); }",
-  );
-  const entryPoint = code.indexOf("// ---- Entry Point ----");
-  if (entryPoint !== -1) code = code.substring(0, entryPoint);
-  return code;
 }
 
-// ── Test runner ──────────────────────────────────────────────────────
+const only = (() => {
+  const i = process.argv.indexOf("--fixture");
+  return i >= 0 ? process.argv[i + 1] : null;
+})();
 
-function compileToJs(almdFile) {
-  return execFileSync(ALMIDE_BIN, [almdFile, "--target", "js"], {
-    encoding: "utf-8",
-    timeout: 30000,
-  });
-}
-
-function runWithBrowserPatching(compiledJs) {
-  const lines = [];
-  const fakePrintln = (s) => lines.push(String(s));
-  const patched = patchRuntimeForBrowser(compiledJs);
-  const wrappedCode =
-    patched + '\nif (typeof main === "function") { main(["playground"]); }';
-  const fn = new Function("__println__", wrappedCode);
-  fn(fakePrintln);
-  return lines.join("\n");
-}
-
-// ── Main ─────────────────────────────────────────────────────────────
-
-const args = process.argv.slice(2);
-const fixtureIdx = args.indexOf("--fixture");
-const filterFixture = fixtureIdx >= 0 ? args[fixtureIdx + 1] : null;
-
-console.log(
-  "\n━━━ Playground Behavioral Tests: Compile → Patch → Run ━━━\n",
-);
-
-let files = readdirSync(FIXTURES_DIR)
+const fixtures = readdirSync(FIXTURES_DIR)
   .filter((f) => f.endsWith(".almd"))
+  .filter((f) => !only || f === `${only}.almd` || f === only)
   .sort();
 
-if (filterFixture) {
-  files = files.filter((f) => f.includes(filterFixture));
-}
-
-if (files.length === 0) {
-  console.log("  No fixtures found.");
-  process.exit(0);
-}
-
-let passed = 0;
-let failed = 0;
-let skipped = 0;
-
-for (const file of files) {
-  const filePath = join(FIXTURES_DIR, file);
-  const name = file.replace(".almd", "");
-  const source = readFileSync(filePath, "utf-8");
-  const knownIssue = source.match(/^\/\/\s*known-issue:\s*(.+)/m);
-
-  try {
-    const compiledJs = compileToJs(filePath);
-    const output = runWithBrowserPatching(compiledJs);
-    console.log(`  ✓  ${name}`);
-    if (output) {
-      for (const line of output.split("\n")) {
-        console.log(`     ${line}`);
-      }
-    }
-    passed++;
-  } catch (e) {
-    if (knownIssue) {
-      console.log(`  ⊘  ${name} (known issue: ${knownIssue[1]})`);
-      skipped++;
-    } else {
-      console.log(`  ✗  ${name}`);
-      const msg = e.stderr ? e.stderr.toString() : e.message || String(e);
-      for (const line of msg.split("\n").slice(0, 8)) {
-        console.log(`     ${line}`);
-      }
-      failed++;
-    }
-  }
-}
-
-const parts = [`${passed} passed`];
-if (skipped > 0) parts.push(`${skipped} skipped`);
-if (failed > 0) parts.push(`${failed} failed`);
-console.log(`\n  ${parts.join(", ")}\n`);
-
-if (failed > 0) {
-  console.log("✗ Some tests failed");
+if (fixtures.length === 0) {
+  console.error("no fixtures matched");
   process.exit(1);
-} else {
-  console.log("✓ All checks passed");
 }
+
+let failures = 0;
+
+for (const f of fixtures) {
+  const path = join(FIXTURES_DIR, f);
+  const marker = `${f.replace(/_test\.almd$/, "")}: ok`;
+
+  const native = run(["run", path]);
+  if (!native.ok || !native.stdout.endsWith(marker)) {
+    console.error(`✗ ${f} [native]`);
+    console.error(native.stderr || native.stdout);
+    failures++;
+    continue;
+  }
+
+  const wasm = run(["run", path, "--target", "wasm"]);
+  if (KNOWN_WASM_WALLS.has(f)) {
+    if (wasm.ok) {
+      console.error(
+        `✗ ${f} [wasm] passed but is listed in KNOWN_WASM_WALLS — ` +
+          `the compiler brick landed: remove it from the ratchet list`,
+      );
+      failures++;
+    } else {
+      console.log(`✓ ${f} (native ok; wasm wall — tracked)`);
+    }
+    continue;
+  }
+
+  if (!wasm.ok) {
+    console.error(`✗ ${f} [wasm]`);
+    console.error(wasm.stderr || wasm.stdout);
+    failures++;
+    continue;
+  }
+  if (wasm.stdout !== native.stdout) {
+    console.error(`✗ ${f} [cross-target drift]`);
+    console.error(`  native: ${JSON.stringify(native.stdout)}`);
+    console.error(`  wasm:   ${JSON.stringify(wasm.stdout)}`);
+    failures++;
+    continue;
+  }
+  console.log(`✓ ${f} (native + wasm byte-identical)`);
+}
+
+console.log(
+  `\n${fixtures.length - failures}/${fixtures.length} fixtures passed`,
+);
+process.exit(failures ? 1 : 0);

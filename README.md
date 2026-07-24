@@ -67,7 +67,6 @@ crate/
 ├── build.rs          # Extracts version/commit from Cargo.lock
 └── src/lib.rs        # wasm-bindgen exports:
                       #   compile_to_wasm(source) → WASM binary
-                      #   compile_to_ts(source)   → TypeScript
                       #   compile_to_rust(source)  → Rust
                       #   parse_to_ast(source)     → JSON AST
                       #   get_version_info()       → version string
@@ -97,7 +96,7 @@ This means every release of the compiler automatically updates the playground.
 - **Instant compilation** — No server round-trips, everything runs locally
 - **Native WASM execution** — User programs compile to WASM and run via browser_wasi_shim
 - **Live output** — See program output immediately
-- **Compiled view** — Inspect the generated Rust / TypeScript code
+- **Compiled view** — Inspect the generated Rust code
 - **AST view** — See the parsed abstract syntax tree
 - **AI code generation** — Generate Almide code via Claude/OpenAI/Gemini API (client-side, BYOK)
 

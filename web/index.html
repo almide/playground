@@ -1314,7 +1314,7 @@ async function initShiki() {
   try {
     const { createHighlighterCore } = await import('https://esm.sh/shiki@3.2.1/core');
     const { createJavaScriptRegexEngine } = await import('https://esm.sh/shiki@3.2.1/engine/javascript');
-    const grammarResp = await fetch('https://raw.githubusercontent.com/almide/almide-editors/main/grammar/almide.tmLanguage.json');
+    const grammarResp = await fetch('./almide.tmLanguage.json');
     const grammar = await grammarResp.json();
     grammar.name = 'almide';
     shikiHighlighter = await createHighlighterCore({

@@ -9,7 +9,7 @@ fn color_name(c: Color) -> String =
     Red => "Red"
     Green => "Green"
     Blue => "Blue"
-    Custom(r, g, b) => "RGB(" ++ int.to_string(r) ++ "," ++ int.to_string(g) ++ "," ++ int.to_string(b) ++ ")"
+    Custom(r, g, b) => "RGB(" + int.to_string(r) + "," + int.to_string(g) + "," + int.to_string(b) + ")"
   }
 
 fn safe_head(xs: List[String]) -> Option[String] =
@@ -27,7 +27,7 @@ fn fizzbuzz(n: Int) -> String =
   else if n % 5 == 0 then "Buzz"
   else int.to_string(n)
 
-effect fn main(_args: List[String]) -> Result[Unit, String] = {
+effect fn main() -> Result[Unit, String] = {
   // Variant types
   assert_eq(color_name(Red), "Red")
   assert_eq(color_name(Custom(255, 128, 0)), "RGB(255,128,0)")
@@ -37,15 +37,15 @@ effect fn main(_args: List[String]) -> Result[Unit, String] = {
   assert_eq(greet([]), "Hello, World!")
 
   // Arithmetic + pipe + lambda
-  let total = list.fold(1..=10, 0, fn(acc, x) => acc + x)
+  let total = list.fold(1..=10, 0, (acc, x) => acc + x)
   assert_eq(total, 55)
 
   let evens = 1..=10
-    |> list.filter(fn(x) => x % 2 == 0)
+    |> list.filter((x) => x % 2 == 0)
   assert_eq(evens, [2, 4, 6, 8, 10])
 
   // String concat
-  assert_eq("hello" ++ " " ++ "world", "hello world")
+  assert_eq("hello" + " " + "world", "hello world")
 
   // FizzBuzz
   assert_eq(fizzbuzz(15), "FizzBuzz")
