@@ -9,6 +9,6 @@ effect fn main() -> Result[Unit, String] = {
   assert_eq(regex.replace(r"\d", "a1b2c3", "X"), "aXbXcX")
   assert_eq(regex.replace_first(r"\d", "a1b2c3", "X"), "aXb2c3")
   assert_eq(regex.split(r",\s*", "a, b,c, d"), ["a", "b", "c", "d"])
-  assert_eq(regex.captures(r"(\d\d\d\d)-(\d\d)-(\d\d)", "2026-03-09"), some(["2026", "03", "09"]))
+  assert_eq(regex.captures(r"(\d{4})-(\d{2})-(\d{2})", "2026-03-09"), some(["2026", "03", "09"]))
   println("regex: ok")
 }

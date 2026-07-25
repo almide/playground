@@ -31,9 +31,8 @@ const FIXTURES_DIR = resolve(__dirname, "fixtures");
 // fails loudly when the compiler brick lands and the entry must be removed),
 // and any fixture NOT listed here must pass on both targets.
 //
-// path_test: `import path` (bundled sibling module) is outside the
-// MIR-lowering subset — the multi-module wasm linking gap.
-const KNOWN_WASM_WALLS = new Set(["path_test.almd"]);
+// (Empty since C-160: pure-Almide bundled modules — path, args — link on wasm.)
+const KNOWN_WASM_WALLS = new Set([]);
 
 function run(args) {
   try {
