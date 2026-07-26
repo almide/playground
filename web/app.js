@@ -437,15 +437,22 @@ function parsePPM(text) {
   return img;
 }
 
+let visualBlobUrl = null;
+
 /** Returns true when stdout rendered as an image (and fills the Visual tab). */
 function renderVisual(stdout) {
   const text = stdout.trim();
   visualEl.innerHTML = VISUAL_HINT_HTML;
+  if (visualBlobUrl) {
+    URL.revokeObjectURL(visualBlobUrl);
+    visualBlobUrl = null;
+  }
   if (text.startsWith('<svg') || (text.startsWith('<?xml') && text.includes('<svg'))) {
     // Blob-URL <img> renders SVG with scripts disabled — safe for shared code.
     const img = document.createElement('img');
     img.alt = 'SVG output';
-    img.src = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' }));
+    visualBlobUrl = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' }));
+    img.src = visualBlobUrl;
     visualEl.innerHTML = '';
     visualEl.appendChild(img);
     return true;
