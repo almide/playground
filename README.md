@@ -7,76 +7,77 @@ Online playground for the [Almide](https://github.com/almide/almide) programming
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Browser                                                │
-│                                                         │
-│  .almd source                                           │
-│      │                                                  │
-│      ▼                                                  │
-│  ┌──────────────────────────────┐                       │
-│  │  Almide Compiler (WASM)     │                        │
-│  │                             │                        │
-│  │  crate/src/lib.rs           │                        │
-│  │  ├─ parse (lexer → parser)  │                        │
-│  │  ├─ check (type checker)    │                        │
-│  │  ├─ lower (AST → IR)       │                        │
-│  │  ├─ mono (monomorphize)    │                        │
-│  │  └─ codegen::emit(Target::  │                        │
-│  │     Wasm)                   │                        │
-│  └──────────┬───────────────────┘                       │
-│             │                                           │
-│             ▼                                           │
-│  WASM binary (user program)                             │
-│             │                                           │
-│             ▼                                           │
-│  WebAssembly.instantiate()                              │
-│  + browser_wasi_shim (WASI runtime)                     │
-│             │                                           │
-│             ▼                                           │
-│  Output panel (captured stdout/stderr)                  │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Browser                                                     │
+│                                                              │
+│  Main thread                        Web Worker (worker.js)   │
+│  ┌──────────────────────┐          ┌───────────────────────┐ │
+│  │ CodeMirror 6 editor  │  files   │ Almide Compiler (WASM)│ │
+│  │ file tabs (app.js)   │ ───────▶ │ crate/src/lib.rs      │ │
+│  │                      │          │  ├─ check_project     │ │
+│  │ ◀─ diagnostics ───── │          │  ├─ compile_project_  │ │
+│  │    (check-on-idle)   │          │  │    to_wasm (v1     │ │
+│  │                      │          │  │    trust-spine)    │ │
+│  │ ◀─ stdout stream ─── │          │  └─ …_to_rust (v0)    │ │
+│  │    (Output panel)    │          │        │              │ │
+│  └──────────────────────┘          │        ▼              │ │
+│                                    │ WebAssembly.instantiate│ │
+│   Stop = worker.terminate()        │ + browser_wasi_shim    │ │
+│   (an infinite loop never          │   (in-memory preopen   │ │
+│    freezes the page)               │    dir = data tabs)    │ │
+│                                    └───────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### Why WASM?
 
-The Almide compiler is written in Rust. `wasm-pack` compiles it to WebAssembly, which runs natively in the browser. No server needed — compilation happens entirely client-side.
+The Almide compiler is written in Rust. `wasm-pack` compiles it to WebAssembly, which runs natively in the browser. No server needed — compilation happens entirely client-side. The wasm codegen path is the v1 trust-spine renderer (`almide_mir::pipeline::try_render_wasm_source`) — the **same entry** the native CLI's `--target wasm` uses, so playground output is byte-identical to native (enforced by `tests/run.mjs`).
+
+### Multi-file projects
+
+Tabs are files. A tab named `util.almd` is importable as `import self.util` — the same module system as a local project (`src/main.almd` + `src/util.almd`). Non-`.almd` tabs (e.g. `data.csv`) are mounted into an in-memory WASI directory, so `fs.read_text("data.csv")` works in the browser exactly like it does natively.
 
 ### Execution model
 
-The compiler targets `Target::Wasm`, producing a WASM binary from user code. This binary is instantiated via `WebAssembly.instantiate()` with [browser_wasi_shim](https://github.com/bjorn3/browser_wasi_shim) providing the `wasi_snapshot_preview1` imports. stdout/stderr output is captured via `ConsoleStdout.lineBuffered` and displayed in the output panel.
-
-WASI gives user programs access to:
-- **stdout/stderr** — `println`, `eprintln`
-- **Clock** — `datetime.now()` returns the real wall clock time
-- **Random** — `crypto.getRandomValues()` backed randomness
-
-### Compilation pipeline in the browser
-
-1. **Parse**: `.almd` source → AST (lexer + recursive descent parser)
-2. **Check**: Type checking (Hindley-Milner with unification)
-3. **Lower**: AST → typed IR (intermediate representation)
-4. **Mono**: Monomorphize row-polymorphic functions
-5. **Codegen**: IR → Nanopass pipeline → WASM binary
-6. **Execute**: `WebAssembly.instantiate()` + WASI → `_start()`
+Compilation **and** execution live in a Web Worker: an infinite loop or heavy compile never freezes the UI, Stop is `worker.terminate()` + respawn, and stdout/stderr stream line-by-line into the Output panel while the program runs. While you type, the worker runs `check_project` on idle and the editor shows compiler diagnostics inline (line/col precise, with the compiler's `hint:` attached; `try:` fixes surface as one-click actions).
 
 ### Key files
 
 ```
 crate/
-├── Cargo.toml        # Depends on almide (git, main branch)
+├── Cargo.toml        # Depends on almide + almide-mir (git, main branch)
 ├── build.rs          # Extracts version/commit from Cargo.lock
 └── src/lib.rs        # wasm-bindgen exports:
-                      #   compile_to_wasm(source) → WASM binary
-                      #   compile_to_rust(source)  → Rust
-                      #   parse_to_ast(source)     → JSON AST
-                      #   get_version_info()       → version string
+                      #   compile_project_to_wasm(files, entry) → WASM binary
+                      #   compile_project_to_rust(files, entry) → Rust source
+                      #   check_project(files, entry)           → JSON diagnostics
+                      #   parse_to_ast(source)                  → JSON AST
+                      #   (+ single-file compile_to_* wrappers)
 
 web/
-├── index.html        # Single-file app (editor, output, compiled view)
+├── index.html        # Markup, styles, CodeMirror importmap (esm.sh, build-less)
+├── app.js            # Controller: tabs, run, share, gallery, persistence
+├── editor.js         # CodeMirror 6 setup + Almide StreamLanguage + diagnostics
+├── worker.js         # Compile + WASI execution in a Worker (stdout streaming)
+├── runner.js         # Main-thread RPC wrapper (timeout, cancel = respawn)
+├── share.js          # URL-hash sharing (deflate-raw + base64url, no server)
+├── ai.js             # BYOK AI generation + auto-repair loop (3 providers)
+├── examples/         # Gallery: manifest.json + one directory per example
 └── pkg/              # wasm-pack output (auto-generated)
-    ├── almide_playground.js      # JS glue
-    └── almide_playground_bg.wasm # Compiled compiler
 ```
+
+## Sharing
+
+Share encodes **all tabs** into the URL hash (`#code=…`, CompressionStream
+deflate + base64url) — no server, no expiry. Examples deep-link as
+`?example=<id>` (e.g. [`?example=csv-report`](https://almide.github.io/playground/?example=csv-report)).
+
+## Example gallery
+
+`web/examples/` holds TS-Playground-style samples: the explanation lives in
+code comments, each sample ends with a "try breaking this" nudge and a link to
+the next one. Every sample is CI-verified byte-identical between native and
+wasm (`node tests/run.mjs`) — a sample that walls or drifts fails the harness.
 
 ## Auto-deploy
 
@@ -94,11 +95,14 @@ This means every release of the compiler automatically updates the playground.
 ## Features
 
 - **Instant compilation** — No server round-trips, everything runs locally
-- **Native WASM execution** — User programs compile to WASM and run via browser_wasi_shim
-- **Live output** — See program output immediately
+- **Worker isolation** — Stop button kills runaway programs; the UI never freezes
+- **Inline diagnostics** — compiler errors as you type, with hints and one-click fixes
+- **Multi-file tabs** — `import self.<tab>` modules + data-file tabs for `fs.read_text`
+- **Share URLs** — the whole tab set in the URL hash, serverless
+- **Example gallery** — commented, categorized, CI-tested samples with deep links
 - **Compiled view** — Inspect the generated Rust code
 - **AST view** — See the parsed abstract syntax tree
-- **AI code generation** — Generate Almide code via Claude/OpenAI/Gemini API (client-side, BYOK)
+- **AI code generation** — Generate + auto-repair Almide code via Claude/OpenAI/Gemini (client-side, BYOK)
 
 ## Development
 
@@ -112,11 +116,14 @@ cd crate && wasm-pack build --target web --out-dir ../web/pkg
 # Serve locally
 cd web && python3 -m http.server 8765
 # Open http://localhost:8765
+
+# Cross-target harness (fixtures + example gallery, native vs wasm byte-parity)
+node tests/run.mjs
 ```
 
 ## Limitations
 
-- File I/O (`fs.*`) is not available in the browser sandbox (WASI stubs return errors)
+- `fs.*` can only read the data-file tabs mounted into the in-memory WASI dir (writes don't persist)
 - `env.args()` and `process.exec()` are not available
 - Network access (`http.*`) is not available from within WASM
 

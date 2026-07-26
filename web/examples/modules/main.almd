@@ -1,0 +1,23 @@
+// Modules — split code across tabs
+//
+// `import self.stats` loads the stats.almd tab as a module: the file
+// name is the module name. Locally the very same code runs as a project
+// (src/main.almd + src/stats.almd).
+
+import self.stats
+
+fn main() -> Unit = {
+  let temps = [21.5, 23.0, 19.5, 25.0, 22.5, 18.0]
+
+  println("mean:   ${float.to_string(stats.mean(temps))}")
+  println("spread: ${float.to_string(stats.spread(temps))}")
+  println("normalized:")
+  for t in stats.normalize(temps) {
+    println("  ${float.to_string(t)}")
+  }
+}
+
+// Try it: add `fn median(xs: List[Float]) -> Float` in the stats.almd tab
+// and call it here — the module picks it up on the next Run.
+
+// Next: ?example=csv-report

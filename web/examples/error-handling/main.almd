@@ -1,0 +1,34 @@
+// Errors as values
+//
+// No exceptions: fallible functions return Result[T, E]. An `effect fn`
+// gets automatic propagation — the first err short-circuits out, like `?`
+// in Rust but without writing it on every call.
+
+fn parse_score(raw: String) -> Result[Int, String] = {
+  let n = int.parse(string.trim(raw)) ?? -1
+  if n < 0 or n > 100 then err("bad score: '${raw}'")
+  else ok(n)
+}
+
+fn grade(n: Int) -> String =
+  if n >= 90 then "A"
+  else if n >= 80 then "B"
+  else if n >= 70 then "C"
+  else "F"
+
+effect fn main() -> Result[Unit, String] = {
+  // Try it: add "142" to this list and press Run — main stops at the
+  // first err and the message reaches the output untouched.
+  let raws = ["90", " 72", "85"]
+
+  for raw in raws {
+    let score = parse_score(raw)!
+    println("${string.trim(raw)} -> ${grade(score)}")
+  }
+
+  // guard is the early-exit form: state the happy path, bail otherwise.
+  guard list.len(raws) > 0 else err("no scores given")
+  println("checked ${int.to_string(list.len(raws))} scores")
+}
+
+// Next: ?example=modules

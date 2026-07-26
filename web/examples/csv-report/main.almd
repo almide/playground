@@ -1,0 +1,40 @@
+// Read a data file
+//
+// The data.csv tab is a real file to this program: the playground mounts
+// every non-.almd tab into an in-memory filesystem, so fs.read_text works
+// here exactly like it does natively next to your source file.
+
+import fs
+
+type Row = { name: String, score: Int }
+
+fn parse_row(line: String) -> Row = {
+  let cols = string.split(line, ",")
+  {
+    name: list.get_or(cols, 0, "?"),
+    score: int.parse(list.get_or(cols, 1, "0")) ?? 0,
+  }
+}
+
+effect fn main() -> Result[Unit, String] = {
+  let text = fs.read_text("data.csv")
+  let rows = text
+    |> string.trim
+    |> string.lines
+    |> list.drop(1)          // skip the header line
+    |> list.map(parse_row)
+
+  for r in rows {
+    let bar = string.repeat("#", r.score / 10)
+    println("${string.pad_end(r.name, 8, " ")} ${string.pad_start(int.to_string(r.score), 3, " ")}  ${bar}")
+  }
+
+  let total = rows |> list.map((r) => r.score) |> list.sum
+  let avg = total / list.len(rows)
+  println("---")
+  println("average: ${int.to_string(avg)}")
+
+  // Try it: edit the data.csv tab — add yourself a row — and press Run.
+}
+
+// Next: ?example=mini-markdown

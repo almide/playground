@@ -1,0 +1,38 @@
+// Pattern matching
+//
+// An ADT (algebraic data type) declares every shape a value can take.
+// `match` must then cover every variant — the compiler checks this at
+// compile time, so a forgotten case is an error, not a runtime surprise.
+
+type Shape =
+  | Circle(Float)
+  | Rect(Float, Float)
+  | Triangle(Float, Float)
+
+// Try it: delete the Triangle arm below and press Run — the error tells
+// you exactly which case went missing.
+
+fn area(s: Shape) -> Float =
+  match s {
+    Circle(r) => 3.14159265 * r * r
+    Rect(w, h) => w * h
+    Triangle(b, h) => 0.5 * b * h
+  }
+
+// Payloads destructure right in the arm — no casts, no field access.
+
+fn describe(s: Shape) -> String =
+  match s {
+    Circle(r) => "circle r=${float.to_string(r)}"
+    Rect(w, h) => "rect ${float.to_string(w)}x${float.to_string(h)}"
+    Triangle(b, h) => "triangle b=${float.to_string(b)} h=${float.to_string(h)}"
+  }
+
+fn main() -> Unit = {
+  let shapes = [Circle(1.0), Rect(3.0, 4.0), Triangle(6.0, 2.0)]
+  for s in shapes {
+    println("${describe(s)} -> area ${float.to_string(area(s))}")
+  }
+}
+
+// Next: ?example=pipes-and-lists

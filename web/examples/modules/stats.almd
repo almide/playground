@@ -1,0 +1,25 @@
+// This tab is the `stats` module. After `import self.stats`,
+// main.almd reaches everything here through the `stats.` prefix.
+
+fn sum(xs: List[Float]) -> Float =
+  xs |> list.fold(0.0, (acc, x) => acc + x)
+
+fn mean(xs: List[Float]) -> Float =
+  if list.is_empty(xs) then 0.0
+  else sum(xs) / int.to_float(list.len(xs))
+
+// min/max return an Option (the list may be empty) — `??` supplies
+// the fallback.
+fn spread(xs: List[Float]) -> Float = {
+  let lo = xs |> list.min ?? 0.0
+  let hi = xs |> list.max ?? 0.0
+  hi - lo
+}
+
+// Modules call their own fns directly — no prefix needed inside the tab.
+fn normalize(xs: List[Float]) -> List[Float] = {
+  let lo = xs |> list.min ?? 0.0
+  let range = spread(xs)
+  if range == 0.0 then xs
+  else xs |> list.map((x) => (x - lo) / range)
+}

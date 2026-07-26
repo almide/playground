@@ -34,12 +34,17 @@ const FIXTURES_DIR = resolve(__dirname, "fixtures");
 // (Empty since C-160: pure-Almide bundled modules — path, args — link on wasm.)
 const KNOWN_WASM_WALLS = new Set([]);
 
-function run(args) {
+function run(args, cwd) {
   try {
     const stdout = execFileSync(ALMIDE_BIN, args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 120_000,
+      cwd,
+      // The wasm leg derives the guest cwd from $PWD, not getcwd() — with a
+      // stale PWD (execFileSync keeps the parent's), relative fs reads fail
+      // with ENOENT on wasm only. Keep both in sync.
+      env: cwd ? { ...process.env, PWD: cwd } : process.env,
     });
     return { ok: true, stdout: stdout.trimEnd() };
   } catch (e) {
@@ -61,7 +66,9 @@ const fixtures = readdirSync(FIXTURES_DIR)
   .filter((f) => !only || f === `${only}.almd` || f === only)
   .sort();
 
-if (fixtures.length === 0) {
+// `--fixture` may name an example id instead of a fixture — the empty-match
+// error is deferred until the example section below has had its chance.
+if (fixtures.length === 0 && !only) {
   console.error("no fixtures matched");
   process.exit(1);
 }
@@ -113,4 +120,81 @@ for (const f of fixtures) {
 console.log(
   `\n${fixtures.length - failures}/${fixtures.length} fixtures passed`,
 );
-process.exit(failures ? 1 : 0);
+
+// --- Example gallery (web/examples) ---
+//
+// Gallery samples are the storefront: every one must run and stay
+// byte-identical across targets. There is NO wall ratchet here — a walled
+// example is a broken example and fails the harness.
+//
+// Each example is materialized the way a local user would run it:
+// almide.toml + src/<*.almd> (so `import self.<tab>` resolves) with data
+// files at the project root (the runtime cwd, where fs.read_text looks).
+
+import { readFileSync, writeFileSync, mkdirSync, rmSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
+
+const EXAMPLES_DIR = resolve(__dirname, "../web/examples");
+const manifest = JSON.parse(
+  readFileSync(join(EXAMPLES_DIR, "manifest.json"), "utf8"),
+);
+const examples = manifest.categories
+  .flatMap((c) => c.examples)
+  .filter((ex) => !only || only === ex.id);
+
+let exampleFailures = 0;
+// realpath: macOS tmpdir is a symlink (/var/folders → /private/var), and the
+// wasm leg's preopen/cwd mapping resolves real paths — a symlinked cwd makes
+// relative fs.read_text fail with ENOENT on wasm only.
+const scratchRoot = join(
+  realpathSync(tmpdir()),
+  `almide-playground-examples-${process.pid}`,
+);
+
+for (const ex of examples) {
+  const root = join(scratchRoot, ex.id);
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(
+    join(root, "almide.toml"),
+    `[package]\nname = "${ex.id.replace(/-/g, "_")}"\nversion = "0.1.0"\n`,
+  );
+  for (const name of ex.files) {
+    const content = readFileSync(join(EXAMPLES_DIR, ex.id, name), "utf8");
+    const dest = name.endsWith(".almd") ? join(root, "src", name) : join(root, name);
+    writeFileSync(dest, content);
+  }
+
+  const native = run(["run", "src/main.almd"], root);
+  if (!native.ok) {
+    console.error(`✗ example ${ex.id} [native]`);
+    console.error(native.stderr || native.stdout);
+    exampleFailures++;
+    continue;
+  }
+  const wasm = run(["run", "src/main.almd", "--target", "wasm"], root);
+  if (!wasm.ok) {
+    console.error(`✗ example ${ex.id} [wasm]`);
+    console.error(wasm.stderr || wasm.stdout);
+    exampleFailures++;
+    continue;
+  }
+  if (wasm.stdout !== native.stdout) {
+    console.error(`✗ example ${ex.id} [cross-target drift]`);
+    console.error(`  native: ${JSON.stringify(native.stdout)}`);
+    console.error(`  wasm:   ${JSON.stringify(wasm.stdout)}`);
+    exampleFailures++;
+    continue;
+  }
+  console.log(`✓ example ${ex.id} (native + wasm byte-identical)`);
+}
+
+rmSync(scratchRoot, { recursive: true, force: true });
+console.log(
+  `${examples.length - exampleFailures}/${examples.length} examples passed`,
+);
+
+if (only && fixtures.length === 0 && examples.length === 0) {
+  console.error(`nothing matched '${only}'`);
+  process.exit(1);
+}
+process.exit(failures || exampleFailures ? 1 : 0);

@@ -1,0 +1,22 @@
+{
+  "categories": [
+    {
+      "id": "language",
+      "title": "Language",
+      "examples": [
+        { "id": "pattern-matching", "title": "Pattern matching", "files": ["main.almd"] },
+        { "id": "pipes-and-lists", "title": "Pipes & lists", "files": ["main.almd"] },
+        { "id": "error-handling", "title": "Errors as values", "files": ["main.almd"] },
+        { "id": "modules", "title": "Modules (multi-file)", "files": ["main.almd", "stats.almd"] }
+      ]
+    },
+    {
+      "id": "parsers",
+      "title": "Parsers & data",
+      "examples": [
+        { "id": "mini-markdown", "title": "Mini Markdown → HTML", "files": ["main.almd"] },
+        { "id": "csv-report", "title": "CSV report (fs.read)", "files": ["main.almd", "data.csv"] }
+      ]
+    }
+  ]
+}
