@@ -21,3 +21,19 @@ almide = { git = "https://github.com/almide/almide.git", branch = "main" }
 # lockstep.
 almide-mir = { git = "https://github.com/almide/almide.git", branch = "main" }
 wat = "1"
+
+# Size-first release profile: the wasm ships to every first-time visitor
+# (10MB → the dominant cost of the playground's initial load). `z` + fat LTO
+# + single codegen unit trades compile-farm minutes and some runtime speed
+# for download size; in-browser compile latency stays well under a second.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[package.metadata.wasm-pack.profile.release]
+# Overriding wasm-opt args drops wasm-pack's defaults, so the feature flags
+# rustc-emitted wasm needs (bulk memory etc.) must be re-enabled explicitly.
+wasm-opt = ["-Oz", "--enable-bulk-memory", "--enable-sign-ext", "--enable-mutable-globals", "--enable-nontrapping-float-to-int"]
