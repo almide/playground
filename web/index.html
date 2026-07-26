@@ -304,6 +304,38 @@ button.ai:hover:not(:disabled) {
   font-family: var(--sans); font-size: 13px; font-weight: 500;
 }
 
+/* Visual tab */
+#visual { display: flex; align-items: center; justify-content: center; }
+#visual img, #visual canvas {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+}
+#visual canvas.pixelated { image-rendering: pixelated; width: min(100%, 640px); height: auto; }
+.visual-hint { color: var(--text-muted); font-size: 12px; max-width: 40ch; text-align: center; }
+
+/* Embed mode (?embed=1) — minimal chrome for iframes */
+.embed-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+.embed-bar[hidden] { display: none; }
+.embed-title {
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  letter-spacing: 0.04em;
+}
+.embed-bar a {
+  font-size: 11px; color: var(--text-muted); text-decoration: none;
+  margin-left: auto;
+}
+.embed-bar a:hover { color: var(--accent-light); }
+.embed-bar button { padding: 4px 14px; font-size: 11px; }
+body.embed header, body.embed .ai-bar { display: none; }
+body.embed .status { padding: 3px 12px; font-size: 10px; }
+body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
+
 .status {
   padding: 5px 24px;
   background: var(--bg-surface);
@@ -430,10 +462,17 @@ button.ai:hover:not(:disabled) {
   <div class="actions">
     <button id="examples-btn">Examples ▾</button>
     <div id="examples-menu" class="examples-menu" hidden></div>
+    <button id="export-btn" title="Download all tabs as a runnable almide project (zip)">Export</button>
     <button id="share-btn" title="Copy a URL containing all tabs">Share</button>
     <button class="primary" id="run-btn" title="Ctrl/Cmd+Enter">Run</button>
   </div>
 </header>
+
+<div class="embed-bar" id="embed-bar" hidden>
+  <span class="embed-title">Almide</span>
+  <a href="#" id="embed-open" title="Open this snippet in the full playground">Open in Playground ↗</a>
+  <button class="primary" id="embed-run-btn" title="Ctrl/Cmd+Enter">Run</button>
+</div>
 
 <div class="panels">
   <div class="panel">
@@ -445,10 +484,12 @@ button.ai:hover:not(:disabled) {
   <div class="panel">
     <div class="panel-header">
       <span class="tab active" id="tab-output">Output</span>
+      <span class="tab" id="tab-visual">Visual</span>
       <span class="tab" id="tab-compiled">Compiled</span>
       <span class="tab" id="tab-ast">AST</span>
     </div>
     <div class="output-area" id="output">Press Run (Ctrl/Cmd+Enter) to execute.</div>
+    <div class="output-area" id="visual" style="display:none"><span class="visual-hint">Programs that print an SVG document (&lt;svg …&gt;) or a PPM image (P3 …) render here. Try Examples → Graphics.</span></div>
     <div class="output-area" id="compiled" style="display:none"></div>
     <div class="output-area" id="ast" style="display:none"></div>
   </div>

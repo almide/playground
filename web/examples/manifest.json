@@ -11,6 +11,14 @@
       ]
     },
     {
+      "id": "graphics",
+      "title": "Graphics",
+      "examples": [
+        { "id": "mandelbrot", "title": "Mandelbrot (PPM → pixels)", "files": ["main.almd"] },
+        { "id": "svg-art", "title": "Generative SVG", "files": ["main.almd"] }
+      ]
+    },
+    {
       "id": "parsers",
       "title": "Parsers & data",
       "examples": [

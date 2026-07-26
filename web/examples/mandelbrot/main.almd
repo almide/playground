@@ -1,0 +1,52 @@
+// Mandelbrot — pixels on the Visual tab
+//
+// The playground renders what you print: emit a PPM image (the "P3" text
+// format — header, then R G B per pixel) and the Visual tab shows it as
+// pixels. The very same program prints a valid .ppm file natively.
+
+fn escape_count(cx: Float, cy: Float, max_iter: Int) -> Int = {
+  var x = 0.0
+  var y = 0.0
+  var i = 0
+  var done = false
+  while i < max_iter and not done {
+    let x2 = x * x
+    let y2 = y * y
+    if x2 + y2 > 4.0 then { done = true }
+    else {
+      let nx = x2 - y2 + cx
+      y = 2.0 * x * y + cy
+      x = nx
+      i = i + 1
+    }
+  }
+  i
+}
+
+fn color(i: Int, max_iter: Int) -> String =
+  if i >= max_iter then "8 8 24"
+  else {
+    let t = i * 255 / max_iter
+    "${int.to_string(t)} ${int.to_string(80 + t / 2)} ${int.to_string(255 - t)}"
+  }
+
+fn main() -> Unit = {
+  let w = 160
+  let h = 100
+  println("P3")
+  println("${int.to_string(w)} ${int.to_string(h)}")
+  println("255")
+  for py in 0..h {
+    var row = ""
+    for px in 0..w {
+      // Try it: zoom in by shrinking the ranges — e.g. map px to
+      // -0.8..-0.4 and py to -0.3..0.1 — and bump max_iter to 120.
+      let cx = -2.2 + 3.0 * int.to_float(px) / int.to_float(w)
+      let cy = -1.2 + 2.4 * int.to_float(py) / int.to_float(h)
+      row = row + color(escape_count(cx, cy, 60), 60) + " "
+    }
+    println(string.trim(row))
+  }
+}
+
+// Next: ?example=svg-art

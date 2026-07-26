@@ -5,6 +5,14 @@ import { createEditor } from './editor.js';
 import { Runner } from './runner.js';
 import { encodeShare, decodeShare } from './share.js';
 import { initAI } from './ai.js';
+import { buildZip } from './zip.js';
+
+// Embed mode (?embed=1): minimal chrome for iframes. ?hide=a.almd,b.almd
+// hides tabs from the strip while still compiling them (Kotlin-style
+// hidden setup code).
+const BOOT_PARAMS = new URLSearchParams(location.search);
+const EMBED = BOOT_PARAMS.get('embed') === '1';
+const HIDDEN_TABS = new Set((BOOT_PARAMS.get('hide') || '').split(',').filter(Boolean));
 
 const ENTRY = 'main.almd';
 const STORAGE_KEY = 'almide-playground-files-v2';
@@ -131,6 +139,7 @@ const tabsEl = $('file-tabs');
 function renderTabs() {
   tabsEl.innerHTML = '';
   files.forEach((f, i) => {
+    if (HIDDEN_TABS.has(f.name)) return;
     const tab = document.createElement('span');
     tab.className = 'file-tab' + (i === active ? ' active' : '');
     if ((diagnosticsByFile.get(f.name) || []).some((d) => d.level === 'error')) {
@@ -140,7 +149,7 @@ function renderTabs() {
     label.textContent = f.name;
     tab.appendChild(label);
     tab.addEventListener('click', () => switchTab(i));
-    if (f.name !== ENTRY) {
+    if (f.name !== ENTRY && !EMBED) {
       tab.title = 'Double-click to rename';
       label.addEventListener('dblclick', (e) => {
         e.stopPropagation();
@@ -158,10 +167,11 @@ function renderTabs() {
     }
     tabsEl.appendChild(tab);
   });
+  if (EMBED) return;
   const add = document.createElement('button');
   add.className = 'file-tab-add';
   add.textContent = '+';
-  add.title = 'Add file (name it util.almd to import self.util, or data.csv for fs.read_text)';
+  add.title = 'Add file (util.almd → import self.util, data.csv → fs.read_text, stdin.txt → stdin)';
   add.addEventListener('click', addTab);
   tabsEl.appendChild(add);
 }
@@ -249,6 +259,10 @@ function setFiles(newFiles, { activeName = ENTRY } = {}) {
   }
   diagnosticsByFile = new Map();
   active = Math.max(0, files.findIndex((f) => f.name === activeName));
+  if (HIDDEN_TABS.has(files[active].name)) {
+    const visible = files.findIndex((f) => !HIDDEN_TABS.has(f.name));
+    if (visible >= 0) active = visible;
+  }
   const f = files[active];
   editor.setDoc(f.content, { almd: isAlmd(f.name) });
   renderTabs();
@@ -288,6 +302,7 @@ function applyStoredDiagnostics() {
 // --- Persistence ---
 
 function scheduleSave() {
+  if (EMBED) return; // an embedded snippet must not clobber the user's playground state
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     syncActive();
@@ -388,11 +403,73 @@ function renderRepairLog(entries) {
   showTab('output');
 }
 
+// --- Visual tab (SVG / PPM rendered from stdout) ---
+
+const visualEl = $('visual');
+const VISUAL_HINT_HTML = visualEl.innerHTML;
+
+function parsePPM(text) {
+  // P3 (ASCII) only; '#' comments stripped per spec.
+  const tokens = text
+    .split('\n')
+    .map((l) => l.replace(/#.*$/, ''))
+    .join(' ')
+    .trim()
+    .split(/\s+/);
+  if (tokens[0] !== 'P3') return null;
+  const w = parseInt(tokens[1], 10);
+  const h = parseInt(tokens[2], 10);
+  const max = parseInt(tokens[3], 10);
+  if (!(w > 0 && h > 0 && max > 0) || w * h > 4_000_000) return null;
+  const need = w * h * 3;
+  if (tokens.length < 4 + need) return null;
+  const img = new ImageData(w, h);
+  for (let i = 0; i < w * h; i++) {
+    const r = parseInt(tokens[4 + i * 3], 10);
+    const g = parseInt(tokens[5 + i * 3], 10);
+    const b = parseInt(tokens[6 + i * 3], 10);
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+    img.data[i * 4] = (r * 255) / max;
+    img.data[i * 4 + 1] = (g * 255) / max;
+    img.data[i * 4 + 2] = (b * 255) / max;
+    img.data[i * 4 + 3] = 255;
+  }
+  return img;
+}
+
+/** Returns true when stdout rendered as an image (and fills the Visual tab). */
+function renderVisual(stdout) {
+  const text = stdout.trim();
+  visualEl.innerHTML = VISUAL_HINT_HTML;
+  if (text.startsWith('<svg') || (text.startsWith('<?xml') && text.includes('<svg'))) {
+    // Blob-URL <img> renders SVG with scripts disabled — safe for shared code.
+    const img = document.createElement('img');
+    img.alt = 'SVG output';
+    img.src = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' }));
+    visualEl.innerHTML = '';
+    visualEl.appendChild(img);
+    return true;
+  }
+  if (text.startsWith('P3')) {
+    const parsed = parsePPM(text);
+    if (!parsed) return false;
+    const canvas = document.createElement('canvas');
+    canvas.width = parsed.width;
+    canvas.height = parsed.height;
+    canvas.className = 'pixelated';
+    canvas.getContext('2d').putImageData(parsed, 0, 0);
+    visualEl.innerHTML = '';
+    visualEl.appendChild(canvas);
+    return true;
+  }
+  return false;
+}
+
 // --- Right pane tabs ---
 
 function showTab(name) {
-  for (const t of ['output', 'compiled', 'ast']) {
-    $(t).style.display = t === name ? 'block' : 'none';
+  for (const t of ['output', 'visual', 'compiled', 'ast']) {
+    $(t).style.display = t === name ? '' : 'none'; // '' → stylesheet display (block / flex for #visual)
     $('tab-' + t).className = t === name ? 'tab active' : 'tab';
   }
   if (name === 'compiled') refreshCompiled();
@@ -440,11 +517,14 @@ async function refreshAst() {
 // --- Run ---
 
 const runBtn = $('run-btn');
+const embedRunBtn = $('embed-run-btn');
 
 function setRunning(state) {
   running = state;
-  runBtn.textContent = state ? 'Stop' : 'Run';
-  runBtn.classList.toggle('running', state);
+  for (const btn of [runBtn, embedRunBtn]) {
+    btn.textContent = state ? 'Stop' : 'Run';
+    btn.classList.toggle('running', state);
+  }
 }
 
 async function runCode() {
@@ -460,11 +540,13 @@ async function runCode() {
   showTab('output');
   setStatus('Compiling…');
   const payload = filesPayload();
+  const stdoutLines = [];
   try {
     const res = await runner.run(payload, ENTRY, (evt) => {
       if (evt.event === 'compiled') {
         setStatus('Running… (compiled in ' + evt.ms.toFixed(0) + 'ms)');
       } else if (evt.event === 'stdout') {
+        if (stdoutLines.length < 200_000) stdoutLines.push(evt.line);
         appendOutputLine(evt.line);
       } else if (evt.event === 'stderr') {
         appendOutputLine(evt.line, 'err-line');
@@ -476,6 +558,7 @@ async function runCode() {
       const exitNote = res.exitCode ? ' · exit ' + res.exitCode : '';
       setStatus('Ran in ' + res.runMs.toFixed(0) + 'ms · compiled in ' + res.compileMs.toFixed(0) + 'ms' + exitNote);
       if (res.exitCode) outputEl.classList.remove('success');
+      if (!res.exitCode && renderVisual(stdoutLines.join('\n'))) showTab('visual');
     } else {
       const phase = res.phase === 'runtime' ? 'Runtime error' : 'Compile error';
       if (res.phase === 'runtime' && outputLineCount > 0) {
@@ -518,6 +601,27 @@ async function shareCode() {
   } catch (e) {
     setStatus('Share failed: ' + e.message);
   }
+}
+
+// --- Export (download as a runnable project) ---
+
+function exportZip() {
+  syncActive();
+  // Mirror the layout `almide run src/main.almd` expects locally: .almd files
+  // under src/, data files at the project root (the runtime cwd).
+  const entries = [
+    { name: 'almide-playground/almide.toml', text: '[package]\nname = "playground_export"\nversion = "0.1.0"\n' },
+  ];
+  for (const f of files) {
+    const path = f.name.endsWith('.almd') ? 'src/' + f.name : f.name;
+    entries.push({ name: 'almide-playground/' + path, text: f.content });
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(buildZip(entries));
+  a.download = 'almide-playground.zip';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setStatus('Exported almide-playground.zip — unzip and `almide run src/main.almd`');
 }
 
 // --- Examples gallery ---
@@ -583,7 +687,7 @@ async function loadExample(id) {
     setFiles(loaded);
     const url = new URL(location.href);
     url.hash = '';
-    url.search = '?example=' + id;
+    url.searchParams.set('example', id); // keep embed/hide params intact
     history.replaceState(null, '', url);
     setStatus('Loaded example: ' + ex.title);
     return true;
@@ -650,10 +754,25 @@ const ai = initAI({
 // --- Wire header buttons & boot ---
 
 runBtn.addEventListener('click', runCode);
+embedRunBtn.addEventListener('click', runCode);
 $('share-btn').addEventListener('click', shareCode);
+$('export-btn').addEventListener('click', exportZip);
 $('tab-output').addEventListener('click', () => showTab('output'));
+$('tab-visual').addEventListener('click', () => showTab('visual'));
 $('tab-compiled').addEventListener('click', () => showTab('compiled'));
 $('tab-ast').addEventListener('click', () => showTab('ast'));
+
+if (EMBED) {
+  document.body.classList.add('embed');
+  $('embed-bar').hidden = false;
+  $('embed-open').addEventListener('click', (e) => {
+    e.preventDefault();
+    const url = new URL(location.href);
+    url.searchParams.delete('embed');
+    url.searchParams.delete('hide');
+    window.open(url, '_blank', 'noopener');
+  });
+}
 
 async function boot() {
   renderTabs();
@@ -675,7 +794,7 @@ async function boot() {
   if (!restored && exampleId) {
     restored = await loadExample(exampleId);
   }
-  if (!restored) restored = restoreFromStorage();
+  if (!restored && !EMBED) restored = restoreFromStorage();
   if (!restored) {
     editor.setDoc(DEFAULT_MAIN);
     scheduleCheck();

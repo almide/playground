@@ -1,0 +1,27 @@
+// Generative SVG — vectors on the Visual tab
+//
+// Print an <svg> document and the Visual tab renders it. This one traces
+// a 3:2 Lissajous curve with hue-cycling dots — all string building, no
+// graphics API needed.
+
+import math
+
+fn dot(cx: Float, cy: Float, r: Float, hue: Int) -> String =
+  "<circle cx=\"${float.to_string(cx)}\" cy=\"${float.to_string(cy)}\" r=\"${float.to_string(r)}\" fill=\"hsl(${int.to_string(hue)}, 75%, 60%)\" fill-opacity=\"0.55\"/>"
+
+fn main() -> Unit = {
+  let n = 180
+  var body = ""
+  for i in 0..n {
+    let t = 6.283185307179586 * int.to_float(i) / int.to_float(n)
+    // Try it: change the 3.0 / 2.0 frequency pair (5.0 and 4.0 gets wild),
+    // or the dot count n.
+    let cx = 200.0 + 130.0 * math.cos(3.0 * t)
+    let cy = 200.0 + 130.0 * math.sin(2.0 * t)
+    let r = 6.0 + 4.0 * math.sin(5.0 * t)
+    body = body + dot(cx, cy, r, i * 2)
+  }
+  println("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 400\"><rect width=\"400\" height=\"400\" fill=\"#131316\"/>${body}</svg>")
+}
+
+// Next: ?example=mini-markdown

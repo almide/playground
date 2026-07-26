@@ -66,6 +66,27 @@ web/
 └── pkg/              # wasm-pack output (auto-generated)
 ```
 
+## Visual output
+
+The playground renders what you print. If a program's stdout is an SVG
+document (`<svg …>`) or an ASCII PPM image (`P3 …`), the **Visual** tab shows
+it as an image — vectors via a script-disabled blob `<img>`, pixels via a
+canvas. The same program prints a valid `.svg` / `.ppm` file natively, so the
+byte-parity harness still applies. See Examples → Graphics (Mandelbrot,
+generative SVG).
+
+## Embedding
+
+`?embed=1` renders a minimal chrome for iframes — no header, no AI bar, just
+tabs, editor, output and a slim Run bar with an "Open in Playground" escape
+hatch. `&hide=util.almd` hides tabs from the strip while still compiling them
+(Kotlin-style hidden setup code). Combine with `?example=` or `#code=`:
+
+```html
+<iframe src="https://almide.github.io/playground/?embed=1&example=pattern-matching"
+        style="width:100%;height:420px;border:1px solid #2e2e38;border-radius:8px"></iframe>
+```
+
 ## Sharing
 
 Share encodes **all tabs** into the URL hash (`#code=…`, CompressionStream
@@ -97,7 +118,10 @@ This means every release of the compiler automatically updates the playground.
 - **Instant compilation** — No server round-trips, everything runs locally
 - **Worker isolation** — Stop button kills runaway programs; the UI never freezes
 - **Inline diagnostics** — compiler errors as you type, with hints and one-click fixes
-- **Multi-file tabs** — `import self.<tab>` modules + data-file tabs for `fs.read_text`
+- **Multi-file tabs** — `import self.<tab>` modules + data-file tabs for `fs.read_text`; a `stdin.txt` tab becomes the program's stdin (`io.read_line`)
+- **Visual output** — print SVG or PPM and the Visual tab renders it as an image
+- **Embed mode** — `?embed=1` (+ `hide=`) for iframes in docs and articles, serverless at any scale
+- **Export** — download all tabs as a runnable project zip (`almide run src/main.almd`)
 - **Share URLs** — the whole tab set in the URL hash, serverless
 - **Example gallery** — commented, categorized, CI-tested samples with deep links
 - **Compiled view** — Inspect the generated Rust code

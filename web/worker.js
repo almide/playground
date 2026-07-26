@@ -36,19 +36,23 @@ function post(msg) {
 
 // Non-.almd tabs become an in-memory WASI directory, so `fs.read_text("data.csv")`
 // works in the browser exactly like it does natively next to the source file.
+// Exception: a tab named `stdin.txt` is wired to fd 0 instead of the FS.
+const STDIN_TAB = 'stdin.txt';
+
 function dataFileEntries(files) {
   const enc = new TextEncoder();
   const entries = new Map();
   for (const [name, content] of Object.entries(files)) {
-    if (name.endsWith('.almd')) continue;
+    if (name.endsWith('.almd') || name === STDIN_TAB) continue;
     entries.set(name, new File(enc.encode(content)));
   }
   return entries;
 }
 
 async function runWasm(id, wasmBytes, files) {
+  const stdinBytes = new TextEncoder().encode(files[STDIN_TAB] ?? '');
   const fds = [
-    new OpenFile(new File([])), // fd 0: stdin (empty)
+    new OpenFile(new File(stdinBytes)), // fd 0: stdin (the stdin.txt tab, if any)
     ConsoleStdout.lineBuffered((line) => post({ id, event: 'stdout', line })),
     ConsoleStdout.lineBuffered((line) => post({ id, event: 'stderr', line })),
     new PreopenDirectory('.', dataFileEntries(files)),
