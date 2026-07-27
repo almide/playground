@@ -812,7 +812,12 @@ async function boot() {
     $('version-text').textContent = res.version;
   } catch (e) {
     setStatus('Wasm load failed: ' + e);
+    return;
   }
+
+  // `?autorun=1` — an embedder (docs page, article) that already asked for
+  // this snippet should not make the reader press Run again.
+  if (BOOT_PARAMS.get('autorun') === '1') runCode();
 }
 
 boot();
