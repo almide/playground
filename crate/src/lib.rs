@@ -107,6 +107,21 @@ fn collect_self_imports(
 // WASM target (Run)
 // ---------------------------------------------------------------------------
 
+/// The module list every compile entry needs: the bundled stdlib modules whose
+/// definitions live in `.almd` source (the sized numeric types, `error`,
+/// `datetime`, `value`, …) followed by the user's own tabs.
+///
+/// The CLI gets these from `resolve`, which loads `AUTO_IMPORT_BUNDLED` plus
+/// whatever the program imports. Passing only the user tabs — as this crate did
+/// before — leaves those modules undefined: `x.to_string()` on an `Int8`
+/// reports "undefined method" in the playground while the very same program
+/// compiles natively.
+fn modules_for(source: &str, self_modules: SelfModules) -> SelfModules {
+    let mut modules = almide_mir::pipeline::bundled_self_modules(source);
+    modules.extend(self_modules);
+    modules
+}
+
 /// Compile a tab set to a WASI module. The wasm path is the v1 trust-spine
 /// renderer — the SAME entry as the native CLI's `--target wasm`
 /// (`almide#782` retired the v0 wasm emitter). Sibling modules ride in via
@@ -117,7 +132,8 @@ pub fn compile_project_to_wasm(files_json: &str, entry: &str) -> Result<Vec<u8>,
     let source = entry_source(&files, entry)?;
     let entry_prog = parse_strict(source, entry)?;
     let self_modules = resolve_self_modules(&files, &entry_prog)?;
-    let wat_text = almide_mir::pipeline::try_render_wasm_source(source, &self_modules, false)
+    let modules = modules_for(source, self_modules);
+    let wat_text = almide_mir::pipeline::try_render_wasm_source(source, &modules, false)
         .map_err(|e| format!("{e:?}"))?;
     wat::parse_str(&wat_text).map_err(|e| format!("wat: {e}"))
 }
@@ -127,7 +143,8 @@ pub fn compile_project_to_wasm(files_json: &str, entry: &str) -> Result<Vec<u8>,
 pub fn compile_to_wasm(source: &str) -> Result<Vec<u8>, String> {
     let entry_prog = parse_strict(source, "main.almd")?;
     let _ = entry_prog; // parse gate only; the renderer re-parses internally
-    let wat_text = almide_mir::pipeline::try_render_wasm_source(source, &[], false)
+    let modules = modules_for(source, Vec::new());
+    let wat_text = almide_mir::pipeline::try_render_wasm_source(source, &modules, false)
         .map_err(|e| format!("{e:?}"))?;
     wat::parse_str(&wat_text).map_err(|e| format!("wat: {e}"))
 }
@@ -145,7 +162,7 @@ pub fn compile_project_to_rust(files_json: &str, entry: &str) -> Result<String, 
     let files = parse_files_json(files_json)?;
     let source = entry_source(&files, entry)?;
     let mut program = parse_strict(source, entry)?;
-    let self_modules = resolve_self_modules(&files, &program)?;
+    let self_modules = modules_for(source, resolve_self_modules(&files, &program)?);
 
     let canon = canonicalize::canonicalize_program(
         &program,
@@ -155,6 +172,9 @@ pub fn compile_project_to_rust(files_json: &str, entry: &str) -> Result<String, 
     checker.set_source(entry, source);
     checker.diagnostics = canon.diagnostics;
     for (name, mod_prog, _) in &self_modules {
+        if almide::stdlib_info::is_stdlib_module(name) && !almide::stdlib_info::is_bundled_module(name) {
+            continue;
+        }
         checker.refresh_module_top_lets(mod_prog, name);
     }
     let diagnostics = checker.infer_program(&mut program);
@@ -169,6 +189,9 @@ pub fn compile_project_to_rust(files_json: &str, entry: &str) -> Result<String, 
 
     let mut ir = lower::lower_program(&program, &checker.env, &checker.type_map);
     for (name, mod_prog, _) in &self_modules {
+        if almide::stdlib_info::is_stdlib_module(name) && !almide::stdlib_info::is_bundled_module(name) {
+            continue;
+        }
         let mut mod_prog = mod_prog.clone();
         let before = checker.diagnostics.len();
         checker.infer_module(&mut mod_prog, name);
@@ -178,7 +201,11 @@ pub fn compile_project_to_rust(files_json: &str, entry: &str) -> Result<String, 
             .map(|d| d.display())
             .collect();
         if !module_errors.is_empty() {
-            return Err(format!("in {name}.almd:\n{}", module_errors.join("\n\n")));
+            // A bundled stdlib module is CI-gated upstream; a diagnostic there
+            // is a compiler bug, not something the user can act on.
+            if !almide::stdlib_info::is_bundled_module(name) {
+                return Err(format!("in {name}.almd:\n{}", module_errors.join("\n\n")));
+            }
         }
         let self_name = checker.env.self_module_name.map(|s| s.to_string());
         let import_table_name = self_name.as_deref().unwrap_or(name.as_str());
@@ -289,10 +316,11 @@ fn check_project_inner(files_json: &str, entry: &str, out: &mut Vec<serde_json::
         Ok(p) => p,
         Err(e) => return out.push(plain_error_json(entry, e)),
     };
-    let self_modules = match resolve_self_modules(&files, &entry_prog) {
+    let user_modules = match resolve_self_modules(&files, &entry_prog) {
         Ok(m) => m,
         Err(e) => return out.push(plain_error_json(entry, e)),
     };
+    let self_modules = modules_for(source, user_modules);
 
     let mut program = entry_prog;
     let canon = canonicalize::canonicalize_program(
@@ -303,6 +331,9 @@ fn check_project_inner(files_json: &str, entry: &str, out: &mut Vec<serde_json::
     checker.set_source(entry, source);
     checker.diagnostics = canon.diagnostics;
     for (name, mod_prog, _) in &self_modules {
+        if almide::stdlib_info::is_stdlib_module(name) && !almide::stdlib_info::is_bundled_module(name) {
+            continue;
+        }
         checker.refresh_module_top_lets(mod_prog, name);
     }
     let diagnostics = checker.infer_program(&mut program);
@@ -310,10 +341,14 @@ fn check_project_inner(files_json: &str, entry: &str, out: &mut Vec<serde_json::
         out.push(diag_to_json(d, entry));
     }
 
-    // Module tabs get their own attributed pass — same before/after slice
-    // technique as the CLI's `infer_module_capturing`.
+    // Only the user's own tabs get an attributed pass — same before/after slice
+    // technique as the CLI's `infer_module_capturing`. Bundled stdlib modules
+    // are CI-gated upstream and have no user file to blame.
     for (name, mod_prog, _) in &self_modules {
         let file_name = format!("{name}.almd");
+        if !files.contains_key(&file_name) {
+            continue;
+        }
         let mut mod_prog = mod_prog.clone();
         let before = checker.diagnostics.len();
         if let Some(text) = files.get(&file_name) {
@@ -470,6 +505,30 @@ fn main() -> Unit = {
         assert_eq!(first["level"], "error");
         assert_eq!(first["file"], "main.almd");
         assert!(first["line"].is_number(), "diagnostic should carry a line: {first}");
+    }
+
+    /// Bundled stdlib modules (the sized numeric types, `datetime`, `value`, …)
+    /// are defined in `.almd` source and must be handed to the compiler, or the
+    /// playground rejects programs that build fine natively. This locks the fix
+    /// for that gap: `x.to_string()` on a sized value is a method that only
+    /// exists in `stdlib/uint8.almd`.
+    #[test]
+    fn test_bundled_stdlib_modules_are_linked() {
+        let source = "fn main() -> Unit = {\n  let b: UInt8 = 255\n  println(b.to_string())\n  println(datetime.to_iso(0))\n}\n";
+        let json = files_json(&[("main.almd", source)]);
+
+        let check = check_project(&json, "main.almd");
+        let diags: Vec<serde_json::Value> = serde_json::from_str(&check).unwrap();
+        let errors: Vec<_> = diags.iter().filter(|d| d["level"] == "error").collect();
+        assert!(errors.is_empty(), "check rejected bundled stdlib use: {check}");
+
+        let wasm = compile_project_to_wasm(&json, "main.almd")
+            .unwrap_or_else(|e| panic!("wasm compile rejected bundled stdlib use: {e}"));
+        assert_eq!(&wasm[0..4], b"\0asm");
+
+        let rust = compile_project_to_rust(&json, "main.almd")
+            .unwrap_or_else(|e| panic!("rust compile rejected bundled stdlib use: {e}"));
+        assert!(rust.contains("fn main"));
     }
 
     #[test]
