@@ -426,20 +426,16 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
   .panel:first-child { height: 50vh; }
   .panel:last-child { height: 38vh; }
 
-  .output-area { padding: 12px; font-size: 14px; }
-  /* iOS Safari zooms the page when an editable element under 16px takes
-     focus — keep the editor at 16px on small screens. */
-  #editor-host .cm-editor { font-size: 16px; }
-  #editor-host .cm-gutters { font-size: 14px; }
+  .output-area { padding: 12px; }
 
   .ai-bar {
     flex-wrap: wrap;
     padding: 8px 12px;
     gap: 6px;
   }
-  .ai-bar select { flex: 0 0 auto; font-size: 16px; }
-  .ai-bar input[type="password"] { width: 100%; flex: 1 1 100%; font-size: 16px; }
-  .ai-bar input[type="text"] { flex: 1 1 100%; min-width: 0; font-size: 16px; }
+  .ai-bar select { flex: 0 0 auto; }
+  .ai-bar input[type="password"] { width: 100%; flex: 1 1 100%; }
+  .ai-bar input[type="text"] { flex: 1 1 100%; min-width: 0; }
 
   .status {
     padding: 5px 12px;
@@ -449,6 +445,19 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
   }
 
   .panel-header { padding: 6px 10px; font-size: 10px; }
+}
+
+/* iOS Safari zooms the page when an editable element under 16px takes focus.
+   That is a TOUCH problem, not a narrow-viewport one — keying it off width
+   alone also enlarged the text inside embedded iframes on desktop, which are
+   routinely narrower than 768px. */
+@media (pointer: coarse) {
+  #editor-host .cm-editor { font-size: 16px; }
+  #editor-host .cm-gutters { font-size: 14px; }
+  .output-area { font-size: 14px; }
+  .ai-bar select,
+  .ai-bar input[type="password"],
+  .ai-bar input[type="text"] { font-size: 16px; }
 }
 </style>
 </head>
