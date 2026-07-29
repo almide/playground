@@ -12,7 +12,7 @@ fn dot(cx: Float, cy: Float, r: Float, hue: Int) -> String =
 fn main() -> Unit = {
   let n = 180
   var body = ""
-  for i in 0..n {
+  for i in 0..<n {
     let t = 6.283185307179586 * int.to_float(i) / int.to_float(n)
     // Try it: change the 3.0 / 2.0 frequency pair (5.0 and 4.0 gets wild),
     // or the dot count n.

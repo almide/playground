@@ -36,9 +36,9 @@ fn main() -> Unit = {
   println("P3")
   println("${int.to_string(w)} ${int.to_string(h)}")
   println("255")
-  for py in 0..h {
+  for py in 0..<h {
     var row = ""
-    for px in 0..w {
+    for px in 0..<w {
       // Try it: zoom in by shrinking the ranges — e.g. map px to
       // -0.8..-0.4 and py to -0.3..0.1 — and bump max_iter to 120.
       let cx = -2.2 + 3.0 * int.to_float(px) / int.to_float(w)

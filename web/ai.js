@@ -33,7 +33,7 @@ If:         if cond then a else b                  (* else is MANDATORY *)
 Match:      match x { some(v) => v, none => "" }
 For:        for x in xs { ... }
             for (i, x) in list.enumerate(xs) { ... }
-Range:      0..5 = [0,1,2,3,4]   1..=5 = [1,2,3,4,5]
+Range:      0..<5 = [0,1,2,3,4]   1...5 = [1,2,3,4,5]
 Do loop:    do { guard cond else ok(()) ... }      (* dynamic break only *)
 Guard:      guard cond else err(msg)               (* early exit *)
 Lambda:     (x) => expr

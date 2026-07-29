@@ -37,10 +37,10 @@ effect fn main() -> Result[Unit, String] = {
   assert_eq(greet([]), "Hello, World!")
 
   // Arithmetic + pipe + lambda
-  let total = list.fold(1..=10, 0, (acc, x) => acc + x)
+  let total = list.fold(1...10, 0, (acc, x) => acc + x)
   assert_eq(total, 55)
 
-  let evens = 1..=10
+  let evens = 1...10
     |> list.filter((x) => x % 2 == 0)
   assert_eq(evens, [2, 4, 6, 8, 10])
 
@@ -55,7 +55,7 @@ effect fn main() -> Result[Unit, String] = {
 
   // Range + for-in
   var sum = 0
-  for i in 1..=100 {
+  for i in 1...100 {
     sum = sum + i
   }
   assert_eq(sum, 5050)
