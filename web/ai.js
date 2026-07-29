@@ -156,7 +156,7 @@ fn fibonacci(n: Int) -> List[Int] = {
   var a = 0
   var b = 1
   var result: List[Int] = []
-  for _ in 0..n {
+  for _ in 0..<n {
     result = result + [a]
     let next = a + b
     a = b

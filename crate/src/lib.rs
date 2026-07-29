@@ -420,9 +420,9 @@ fn wave(x: Float, y: Float) -> Float = {
 }
 
 fn main() -> Unit = {
-  for row in 0..5 {
+  for row in 0..<5 {
     var line = ""
-    for col in 0..20 {
+    for col in 0..<20 {
       let v = wave(col.to_float() / 5.0, row.to_float() / 3.0)
       line = line + if v > 0.0 then "#" else "."
     }
