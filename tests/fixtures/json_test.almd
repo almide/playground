@@ -1,7 +1,7 @@
 import json
 
 effect fn main() -> Result[Unit, String] = {
-  let j = json.parse("{\"name\":\"Almide\",\"version\":1}")
+  let j = json.parse("{\"name\":\"Almide\",\"version\":1}")!
   assert_eq(json.get_string(j, "name"), some("Almide"))
   assert_eq(json.get_int(j, "version"), some(1))
   assert_eq(json.get_string(j, "missing"), none)

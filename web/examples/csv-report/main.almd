@@ -17,7 +17,7 @@ fn parse_row(line: String) -> Row = {
 }
 
 effect fn main() -> Result[Unit, String] = {
-  let text = fs.read_text("data.csv")
+  let text = fs.read_text("data.csv")!
   let rows = text
     |> string.trim
     |> string.lines
