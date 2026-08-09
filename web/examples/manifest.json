@@ -4,6 +4,7 @@
       "id": "language",
       "title": "Language",
       "examples": [
+        { "id": "hello-world", "title": "Hello, world!", "files": ["main.almd"] },
         { "id": "pattern-matching", "title": "Pattern matching", "files": ["main.almd"] },
         { "id": "pipes-and-lists", "title": "Pipes & lists", "files": ["main.almd"] },
         { "id": "error-handling", "title": "Errors as values", "files": ["main.almd"] },
