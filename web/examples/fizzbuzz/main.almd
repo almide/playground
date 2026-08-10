@@ -1,0 +1,18 @@
+// FizzBuzz
+//
+// One match on a tuple of remainders — every case is visible at a
+// glance, and the wildcard row uses string interpolation to print
+// the number itself.
+
+fn fizzbuzz(n: Int) -> String =
+  match (n % 3, n % 5) {
+    (0, 0) => "FizzBuzz",
+    (0, _) => "Fizz",
+    (_, 0) => "Buzz",
+    _      => "${n}",
+  }
+
+effect fn main() -> Unit =
+  for n in list.range(1, 16) {
+    println(fizzbuzz(n))
+  }
