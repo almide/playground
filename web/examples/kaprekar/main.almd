@@ -1,0 +1,49 @@
+// Kaprekar's constant — every 4-digit number falls to 6174
+//
+// Sort the digits high-to-low and low-to-high, subtract, repeat.
+// Within seven steps you always land on 6174, and there you stay.
+//
+// The routine is written as pure recursion: `steps` returns the list
+// of lines instead of printing, so there is no mutation anywhere — the
+// digits are just Strings sorted with `list.sort` / `list.reverse`.
+// 42 -> "0042": Kaprekar works on the four digits, leading zeros and all.
+fn pad4(n: Int) -> String = string.pad_start(int.to_string(n), 4, "0")
+
+// The four digits of n as single-character Strings ("0".."9").
+fn digits4(n: Int) -> List[String] = string.chars(pad4(n))
+
+// Glue the digits back into a number; "0378" parses to 378.
+fn from_digits(ds: List[String]) -> Int = int.parse(list.join(ds, "")) ?? 0
+
+// Digits rearranged largest-first and smallest-first.
+fn descending(n: Int) -> Int = from_digits(list.reverse(list.sort(digits4(n))))
+
+fn ascending(n: Int) -> Int = from_digits(list.sort(digits4(n)))
+
+// One line per Kaprekar step, until we reach the fixed point.
+// 6174 maps to itself; a repdigit like 1111 collapses to 0 — both stop.
+fn steps(n: Int) -> List[String] = if n == 6174 or n == 0 then []
+else {
+  let hi = descending(n)
+  let lo = ascending(n)
+  let next = hi - lo
+  [
+    "  ${pad4(n)}  ->  ${pad4(hi)} - ${pad4(lo)}  =  ${pad4(next)}"
+  ] + steps(next)
+}
+
+effect fn main() -> Unit = {
+  println("Kaprekar's routine: sort the digits, big minus small, repeat.")
+  println("")
+  println("Take 3524:")
+  for line in steps(3524) {
+    println(line)
+  }
+  println("")
+  println("It sticks at 6174 — Kaprekar's constant.")
+  println("Every 4-digit number with two different digits ends here:")
+  for seed in [1234, 2025, 8080, 9081, 7000] {
+    let n = list.len(steps(seed))
+    println("  ${pad4(seed)} lands on 6174 in ${int.to_string(n)} steps")
+  }
+}
