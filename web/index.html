@@ -437,6 +437,10 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
     min-height: 0;
   }
   .panel + .panel { border-left: none; }
+  /* In the column stack the flex minimum would otherwise be the CONTENT
+     height: the pane grows past the viewport, the editor never gets a
+     bounded height, and its internal scroller has nothing to scroll. */
+  .panel { min-height: 0; }
   .panel:last-child { display: none; }
   body.view-output .panel:first-child { display: none; }
   body.view-output .panel:last-child { display: flex; }
