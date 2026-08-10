@@ -709,6 +709,8 @@ async function loadExample(id) {
     url.searchParams.set('example', id); // keep embed/hide params intact
     history.replaceState(null, '', url);
     setStatus('Loaded example: ' + ex.title);
+    // Picking an example is a request to READ it — leave the output view.
+    if (MOBILE.matches) setMobileView(false);
     return true;
   } catch (e) {
     setStatus('Failed to load example: ' + e.message);
@@ -789,8 +791,12 @@ $('mobile-view-btn').addEventListener('click', () =>
 $('mobile-ai-btn').addEventListener('click', () => document.body.classList.add('ai-open'));
 $('ai-backdrop').addEventListener('click', () => document.body.classList.remove('ai-open'));
 $('ai-close').addEventListener('click', () => document.body.classList.remove('ai-open'));
-// Generating replaces the active tab's code — close the sheet so you see it.
-$('ai-btn').addEventListener('click', () => document.body.classList.remove('ai-open'));
+// Generating replaces the active tab's code — close the sheet and show
+// the editor so you watch it stream in.
+$('ai-btn').addEventListener('click', () => {
+  document.body.classList.remove('ai-open');
+  if (MOBILE.matches) setMobileView(false);
+});
 
 if (EMBED) {
   document.body.classList.add('embed');

@@ -424,6 +424,8 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
      Examples and the GitHub link. */
   #export-btn { display: none; }
   #share-btn { display: none; }
+  /* Breathing room between the icon and the Examples button. */
+  header .gh-link { margin-right: 8px; }
   .actions { gap: 6px; }
   .actions button { padding: 8px 12px; font-size: 12px; }
   /* Run lives in the thumb-reach bottom bar instead. */
@@ -502,6 +504,10 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
     border-top: 1px solid var(--border);
   }
   .mobile-bar button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     font-family: var(--sans);
     font-size: 14px;
     font-weight: 500;
@@ -611,7 +617,7 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
 </div>
 
 <div class="mobile-bar">
-  <button id="mobile-ai-btn" class="mobile-ai" title="Generate with AI">✨ AI</button>
+  <button id="mobile-ai-btn" class="mobile-ai" title="Generate with AI"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.72a2 2 0 0 0 1.26 1.26L21 10.9l-5.84 1.92a2 2 0 0 0-1.26 1.26L12 19.9l-1.9-5.82a2 2 0 0 0-1.26-1.26L3 10.9l5.84-1.92A2 2 0 0 0 10.1 7.72L12 2z"/><path d="M19.2 14.4l.75 2.25 2.25.75-2.25.75-.75 2.25-.75-2.25-2.25-.75 2.25-.75.75-2.25z"/></svg><span>AI</span></button>
   <button id="mobile-view-btn" class="mobile-view">Output</button>
   <button id="mobile-run-btn" class="mobile-run">Run</button>
 </div>
