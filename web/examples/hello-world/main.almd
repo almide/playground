@@ -6,6 +6,3 @@
 
 effect fn main() -> Unit =
   println("Hello, world!")
-
-// Try it: change the greeting and hit Run.
-// Next: ?example=pipes-and-lists
