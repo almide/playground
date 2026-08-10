@@ -419,11 +419,12 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
   }
   header h1 { font-size: 15px; }
   header .subtitle { display: none; }
-  /* Zip export is a desktop errand, and github.com/almide is one tap away
-     in the Examples anyway — the narrow header keeps Examples and Share. */
-  header .gh-link { display: none; }
+  /* Zip export is a desktop errand, and Share's only feedback lives in
+     the status bar, which is hidden here — the narrow header keeps
+     Examples and the GitHub link. */
   #export-btn { display: none; }
-  .actions { gap: 6px; margin-left: auto; }
+  #share-btn { display: none; }
+  .actions { gap: 6px; }
   .actions button { padding: 8px 12px; font-size: 12px; }
   /* Run lives in the thumb-reach bottom bar instead. */
   #run-btn { display: none; }
