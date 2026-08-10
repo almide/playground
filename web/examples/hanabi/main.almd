@@ -1,25 +1,18 @@
 // Hanabi — summer fireworks as generative SVG
 //
-// Print an <svg> document and the Visual tab renders it. Each run picks a
-// new hue and a new number of rays, so no two flowers are alike.
+// `import self.spark` loads the spark.almd tab as a module. Each run
+// picks a new hue and a new number of rays, so no two flowers are alike.
+// Print an <svg> document and the Visual tab renders it.
 
-import math
 import random
+import self.spark
 
 effect fn main() -> Unit = {
   let hue = int.to_string(random.int(0, 359))
   let n = random.int(22, 34)
   let step = 6.2832 / int.to_float(n)
   let art = list.range(0, n * 7)
-    |> list.map((i) => {
-      let a = step * int.to_float(i / 7)
-      let t = int.to_float(i % 7)
-      let d = 16.0 + t * 23.0
-      let x = float.to_string(200.0 + d * math.cos(a))
-      let y = float.to_string(200.0 + d * math.sin(a))
-      let s = float.to_string(4.6 - t * 0.5)
-      "<circle cx='${x}' cy='${y}' r='${s}'/>"
-    })
+    |> list.map((i) => spark.at(i, step))
     |> list.join("")
   let g = "<g fill='hsl(${hue},95%,68%)'>${art}</g>"
   println("<svg viewBox='0 0 400 400'>${g}</svg>")

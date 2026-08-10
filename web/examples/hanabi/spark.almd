@@ -1,0 +1,16 @@
+// This tab is the `spark` module — one particle of the flower.
+//
+// i identifies the particle: i / 7 picks the ray, i % 7 how far out
+// along it. Polar to cartesian, then a single <circle>.
+
+import math
+
+fn at(i: Int, step: Float) -> String = {
+  let a = step * int.to_float(i / 7)
+  let t = int.to_float(i % 7)
+  let d = 16.0 + t * 23.0
+  let x = float.to_string(200.0 + d * math.cos(a))
+  let y = float.to_string(200.0 + d * math.sin(a))
+  let s = float.to_string(4.6 - t * 0.5)
+  "<circle cx='${x}' cy='${y}' r='${s}'/>"
+}

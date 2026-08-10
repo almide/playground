@@ -19,7 +19,7 @@
       "examples": [
         { "id": "mandelbrot", "title": "Mandelbrot (PPM → pixels)", "files": ["main.almd"] },
         { "id": "svg-art", "title": "Generative SVG", "files": ["main.almd"] },
-        { "id": "hanabi", "title": "Hanabi (fireworks)", "files": ["main.almd"] }
+        { "id": "hanabi", "title": "Hanabi (fireworks)", "files": ["main.almd", "spark.almd"] }
       ]
     },
     {
