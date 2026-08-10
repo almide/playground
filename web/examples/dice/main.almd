@@ -1,24 +1,25 @@
-// Dice — the face falls out of the number
+// Dice — a table you can read at a glance
 //
-// A die is symmetric, so no table of six layouts is needed: the diagonal
-// pair shows from 2, the other corners from 4, the sides only on 6, and the
-// centre pip whenever the number is odd. Three rows, and the source lays
-// out like the die itself.
+// The six faces are data, not branches: each row of FACES draws the die it
+// stands for. `list.get` returns an Option because the index might be out of
+// range; `!` unwraps it and would propagate an error instead of crashing.
 
 import random
 
-fn pip(on: Bool) -> String = if on then "●" else " "
-
-fn face(n: Int) -> List[String] = [
-  "${pip(n >= 2)}   ${pip(n >= 4)}",
-  "${pip(n == 6)} ${pip(n % 2 == 1)} ${pip(n == 6)}",
-  "${pip(n >= 4)}   ${pip(n >= 2)}",
+let FACES = [
+  ["     ", "  ●  ", "     "],
+  ["●    ", "     ", "    ●"],
+  ["●    ", "  ●  ", "    ●"],
+  ["●   ●", "     ", "●   ●"],
+  ["●   ●", "  ●  ", "●   ●"],
+  ["●   ●", "●   ●", "●   ●"],
 ]
 
 effect fn main() -> Unit = {
   let n = random.int(1, 6)
+  let face = list.get(FACES, n - 1)!
   println("╭───────╮")
-  for row in face(n) {
+  for row in face {
     println("│ ${row} │")
   }
   println("╰───────╯")
