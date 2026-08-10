@@ -313,6 +313,8 @@ export function createEditor(parent, hooks = {}) {
     lintGutter(),
     syntaxHighlighting(almideHighlight),
     almideTheme,
+    // A phone can't comfortably pan a horizontal code viewport — wrap instead.
+    ...(window.matchMedia('(max-width: 768px)').matches ? [EditorView.lineWrapping] : []),
     keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) hooks.onChange?.();

@@ -525,13 +525,24 @@ async function refreshAst() {
 
 const runBtn = $('run-btn');
 const embedRunBtn = $('embed-run-btn');
+const mobileRunBtn = $('mobile-run-btn');
 
 function setRunning(state) {
   running = state;
-  for (const btn of [runBtn, embedRunBtn]) {
+  for (const btn of [runBtn, embedRunBtn, mobileRunBtn]) {
     btn.textContent = state ? 'Stop' : 'Run';
     btn.classList.toggle('running', state);
   }
+}
+
+// --- Mobile chrome: single-pane view flip + AI bottom sheet ---
+
+const MOBILE = window.matchMedia('(max-width: 768px)');
+
+function setMobileView(output) {
+  document.body.classList.toggle('view-output', output);
+  // The flip button always names the pane it would take you to.
+  $('mobile-view-btn').textContent = output ? 'Code' : 'Output';
 }
 
 async function runCode() {
@@ -545,6 +556,7 @@ async function runCode() {
   setRunning(true);
   clearOutput();
   showTab('output');
+  if (MOBILE.matches) setMobileView(true);
   setStatus('Compiling…');
   const payload = filesPayload();
   const stdoutLines = [];
@@ -768,6 +780,17 @@ $('tab-output').addEventListener('click', () => showTab('output'));
 $('tab-visual').addEventListener('click', () => showTab('visual'));
 $('tab-compiled').addEventListener('click', () => showTab('compiled'));
 $('tab-ast').addEventListener('click', () => showTab('ast'));
+
+// Mobile bottom bar. The elements exist on desktop too (display: none),
+// so the wiring is unconditional.
+mobileRunBtn.addEventListener('click', runCode);
+$('mobile-view-btn').addEventListener('click', () =>
+  setMobileView(!document.body.classList.contains('view-output')));
+$('mobile-ai-btn').addEventListener('click', () => document.body.classList.add('ai-open'));
+$('ai-backdrop').addEventListener('click', () => document.body.classList.remove('ai-open'));
+$('ai-close').addEventListener('click', () => document.body.classList.remove('ai-open'));
+// Generating replaces the active tab's code — close the sheet so you see it.
+$('ai-btn').addEventListener('click', () => document.body.classList.remove('ai-open'));
 
 if (EMBED) {
   document.body.classList.add('embed');

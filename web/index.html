@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Almide Playground</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -401,48 +401,124 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #333340; }
 
 /* --- Responsive --- */
+
+/* Phone-only chrome, inert on desktop. */
+.mobile-bar { display: none; }
+.ai-backdrop { display: none; }
+.ai-sheet-head { display: none; }
+
 @media (max-width: 768px) {
-  body { height: auto; min-height: 100vh; }
+  /* App-like: one screen, no page scroll, panes scroll internally.
+     dvh (not vh) so the collapsing iOS Safari URL bar doesn't hide the
+     bottom action bar behind the browser chrome. */
+  body { height: 100dvh; }
 
   header {
-    padding: 10px 14px;
-    flex-wrap: wrap; gap: 10px;
+    padding: 8px 12px;
+    gap: 8px;
   }
   header h1 { font-size: 15px; }
-  header .subtitle { font-size: 11px; }
-  .actions { gap: 6px; }
-  .actions button { padding: 6px 12px; font-size: 11px; }
+  header .subtitle { display: none; }
+  /* Zip export is a desktop errand, and github.com/almide is one tap away
+     in the Examples anyway — the narrow header keeps Examples and Share. */
+  header .gh-link { display: none; }
+  #export-btn { display: none; }
+  .actions { gap: 6px; margin-left: auto; }
+  .actions button { padding: 8px 12px; font-size: 12px; }
+  /* Run lives in the thumb-reach bottom bar instead. */
+  #run-btn { display: none; }
 
+  /* One pane at a time, full height — a 50/50 stack left both the code
+     and the result too cramped to read. The bottom bar flips views, and
+     Run flips to Output automatically. */
   .panels {
     flex-direction: column;
-    flex: none;
-    height: auto;
+    flex: 1;
+    min-height: 0;
   }
-  .panel { flex: none; min-height: 0; }
-  .panel + .panel {
-    border-left: none;
-    border-top: 1px solid var(--border);
-  }
-  .panel:first-child { height: 50vh; }
-  .panel:last-child { height: 38vh; }
+  .panel + .panel { border-left: none; }
+  .panel:last-child { display: none; }
+  body.view-output .panel:first-child { display: none; }
+  body.view-output .panel:last-child { display: flex; }
 
   .output-area { padding: 12px; }
 
-  .ai-bar {
-    flex-wrap: wrap;
-    padding: 8px 12px;
-    gap: 6px;
+  /* The AI bar becomes a bottom-sheet dialog, opened from the ✨ button. */
+  .ai-bar { display: none; }
+  body.ai-open .ai-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 8, 14, 0.6);
+    z-index: 40;
   }
-  .ai-bar select { flex: 0 0 auto; }
-  .ai-bar input[type="password"] { width: 100%; flex: 1 1 100%; }
-  .ai-bar input[type="text"] { flex: 1 1 100%; min-width: 0; }
+  body.ai-open .ai-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 50;
+    padding: 16px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  }
+  body.ai-open .ai-sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .ai-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  body.ai-open .ai-bar select,
+  body.ai-open .ai-bar input { width: 100%; }
 
-  .status {
-    padding: 5px 12px;
-    font-size: 10px;
-    flex-wrap: wrap;
-    gap: 4px;
+  .mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
   }
+  .mobile-bar button {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    padding: 12px 16px;
+    cursor: pointer;
+  }
+  .mobile-bar .mobile-view { min-width: 92px; }
+  .mobile-bar .mobile-run {
+    flex: 1;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .mobile-bar .mobile-run.running { background: var(--error); border-color: var(--error); }
+
+  .status { display: none; }
 
   .panel-header { padding: 6px 10px; font-size: 10px; }
 }
@@ -458,6 +534,10 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
   .ai-bar select,
   .ai-bar input[type="password"],
   .ai-bar input[type="text"] { font-size: 16px; }
+  /* Fingers need bigger targets than cursors. */
+  .panel-header .tab { padding: 8px 12px; }
+  #file-tabs .file-tab { padding: 8px 12px; }
+  .examples-menu button { padding: 12px 16px; }
 }
 </style>
 </head>
@@ -508,7 +588,12 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
   </div>
 </div>
 
+<div class="ai-backdrop" id="ai-backdrop"></div>
 <div class="ai-bar">
+  <div class="ai-sheet-head">
+    <span>Generate with AI</span>
+    <button class="ai-close" id="ai-close" title="Close">✕</button>
+  </div>
   <select id="ai-provider">
     <option value="anthropic">Anthropic</option>
     <option value="openai">OpenAI</option>
@@ -518,6 +603,12 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
   <select id="ai-model"></select>
   <input type="text" id="ai-prompt" placeholder="Describe what to generate..." />
   <button class="ai" id="ai-btn">Generate</button>
+</div>
+
+<div class="mobile-bar">
+  <button id="mobile-ai-btn" class="mobile-ai" title="Generate with AI">✨ AI</button>
+  <button id="mobile-view-btn" class="mobile-view">Output</button>
+  <button id="mobile-run-btn" class="mobile-run">Run</button>
 </div>
 
 <div class="status">
