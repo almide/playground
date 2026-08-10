@@ -1,0 +1,26 @@
+// Dice — one match, six faces
+//
+// `face` returns the three pip rows for a value. A match arm per face reads
+// like the die itself; the wildcard `_` covers six. Roll again for a new one.
+
+import random
+
+fn face(n: Int) -> List[String] =
+  match n {
+    1 => ["     ", "  ●  ", "     "],
+    2 => ["●    ", "     ", "    ●"],
+    3 => ["●    ", "  ●  ", "    ●"],
+    4 => ["●   ●", "     ", "●   ●"],
+    5 => ["●   ●", "  ●  ", "●   ●"],
+    _ => ["●   ●", "●   ●", "●   ●"],
+  }
+
+effect fn main() -> Unit = {
+  let n = random.int(1, 6)
+  println("╭───────╮")
+  for row in face(n) {
+    println("│ ${row} │")
+  }
+  println("╰───────╯")
+  println("  you rolled ${int.to_string(n)}")
+}
