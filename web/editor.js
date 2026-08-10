@@ -35,17 +35,105 @@ const KEYWORDS = new Set([
 ]);
 const BOOLS = new Set(['true', 'false']);
 const BUILTINS = new Set(['println', 'eprintln', 'assert', 'assert_eq', 'assert_ne', 'unwrap_or']);
+// Kept in sync with `support.module.almide` in almide.tmLanguage.json.
 const MODULES = new Set([
-  'string', 'list', 'map', 'int', 'float', 'fs', 'env', 'process', 'io', 'json',
-  'math', 'random', 'regex', 'time', 'path', 'encoding', 'args', 'hash', 'term',
+  'string', 'list', 'map', 'set', 'int', 'float', 'math', 'datetime', 'error',
+  'value', 'bytes', 'matrix', 'option', 'result', 'prim', 'fs', 'env', 'process',
+  'io', 'json', 'random', 'regex', 'testing', 'log', 'path', 'args', 'http',
+  'net', 'zlib', 'base64', 'hex', 'html', 'mem', 'time', 'encoding', 'hash', 'term',
 ]);
+
+// Text between the quotes. Stops at `${` so the interpolated expression is
+// lexed as real code, and at the closing quote. Only "…" and """…"""
+// interpolate — '…' is literal, so `'${x}'` prints the braces.
+function lexStringBody(stream, state) {
+  const quote = state.str;
+  const interpolates = quote !== "'";
+  let consumed = false;
+  while (!stream.eol()) {
+    if (interpolates && stream.match('${', false)) {
+      if (consumed) return 'string';
+      stream.match('${');
+      state.interp = 1;
+      return 'interpolation';
+    }
+    if (quote === '"""') {
+      if (stream.match('"""', false)) {
+        if (consumed) return 'string';
+        stream.match('"""');
+        state.str = null;
+        return 'string';
+      }
+      stream.next();
+      consumed = true;
+      continue;
+    }
+    const ch = stream.next();
+    consumed = true;
+    if (ch === '\\') {
+      stream.next();
+      continue;
+    }
+    if (ch === quote) {
+      state.str = null;
+      return 'string';
+    }
+  }
+  // Only """ heredocs survive a line break.
+  if (quote !== '"""') state.str = null;
+  return 'string';
+}
+
+// Everything that is not a comment or string literal — also used for the
+// expression inside `${ … }`, so interpolated code gets its ordinary colors.
+function lexCode(stream, state) {
+  if (stream.match(/^\d[\d_]*(\.\d+)?/)) return 'number';
+  if (stream.match(/^[A-Z][A-Za-z0-9_]*/)) return 'typeName';
+  if (stream.match(/^[a-z_][A-Za-z0-9_]*\??/)) {
+    const word = stream.current().replace(/\?$/, '');
+    if (word === 'import') {
+      state.afterImport = true;
+      return 'keyword';
+    }
+    if (state.afterImport) {
+      // `import random`, `import self.spark`, `import self as pkg`
+      if (word === 'self' || word === 'as') return 'keyword';
+      state.mods.add(word);
+      state.afterImport = false;
+      return 'module';
+    }
+    if (KEYWORDS.has(word)) return 'keyword';
+    if (BOOLS.has(word)) return 'number';
+    // Module names only qualify a member access, so `map` the variable and
+    // `map.get` the module keep their own colors.
+    if ((MODULES.has(word) || state.mods.has(word)) && stream.match(/^\./, false)) {
+      return 'module';
+    }
+    if (BUILTINS.has(word)) return 'builtin';
+    // fn-call position → function color (cheap lookahead).
+    if (stream.match(/^\s*\(/, false)) return 'function';
+    return 'variableName';
+  }
+  if (stream.match('->') || stream.match('=>') || stream.match('|>') ||
+      stream.match('==') || stream.match('!=') || stream.match('<=') ||
+      stream.match('>=') || stream.match('..') || stream.match('??')) {
+    return 'operator';
+  }
+  stream.next();
+  return 'operator';
+}
 
 const almideMode = {
   name: 'almide',
   startState() {
-    return { commentDepth: 0, inHeredoc: false };
+    return { commentDepth: 0, str: null, interp: 0, mods: new Set(), afterImport: false };
+  },
+  // `mods` is mutable, so each parser state copy needs its own.
+  copyState(state) {
+    return { ...state, mods: new Set(state.mods) };
   },
   token(stream, state) {
+    if (stream.sol()) state.afterImport = false;
     // Nested (* ... *) block comments, possibly spanning lines.
     if (state.commentDepth > 0) {
       while (!stream.eol()) {
@@ -57,17 +145,24 @@ const almideMode = {
       }
       return 'comment';
     }
-    // """ heredoc, spanning lines.
-    if (state.inHeredoc) {
-      while (!stream.eol()) {
-        if (stream.match('"""')) {
-          state.inHeredoc = false;
-          return 'string';
-        }
+    // Inside `${ … }`: ordinary code until the brace that closes it.
+    if (state.str && state.interp > 0) {
+      if (stream.peek() === '}') {
         stream.next();
+        state.interp -= 1;
+        return state.interp === 0 ? 'interpolation' : 'operator';
       }
-      return 'string';
+      if (stream.peek() === '{') {
+        stream.next();
+        state.interp += 1;
+        return 'operator';
+      }
+      if (stream.eatSpace()) return null;
+      return lexCode(stream, state);
     }
+    // Inside a string literal (incl. """ heredocs, which span lines).
+    if (state.str) return lexStringBody(stream, state);
+
     if (stream.eatSpace()) return null;
 
     if (stream.match('(*')) {
@@ -85,45 +180,17 @@ const almideMode = {
       stream.skipToEnd();
       return 'comment';
     }
-    if (stream.match('"""')) {
-      state.inHeredoc = true;
-      while (!stream.eol()) {
-        if (stream.match('"""')) {
-          state.inHeredoc = false;
-          return 'string';
-        }
-        stream.next();
-      }
-      return 'string';
-    }
+    // r"…" is raw: no interpolation, single line.
     if (stream.match(/^r"[^"]*"?/)) return 'string';
-    if (stream.peek() === '"') {
-      stream.next();
-      while (!stream.eol()) {
-        const ch = stream.next();
-        if (ch === '\\') stream.next();
-        else if (ch === '"') break;
-      }
+    if (stream.match('"""')) {
+      state.str = '"""';
       return 'string';
     }
-    if (stream.match(/^\d[\d_]*(\.\d+)?/)) return 'number';
-    if (stream.match(/^[A-Z][A-Za-z0-9_]*/)) return 'typeName';
-    if (stream.match(/^[a-z_][A-Za-z0-9_]*\??/)) {
-      const word = stream.current().replace(/\?$/, '');
-      if (KEYWORDS.has(word)) return 'keyword';
-      if (BOOLS.has(word)) return 'number';
-      if (BUILTINS.has(word) || MODULES.has(word)) return 'builtin';
-      // fn-call position → function color (cheap lookahead).
-      if (stream.match(/^\s*\(/, false)) return 'function';
-      return 'variableName';
+    if (stream.peek() === '"' || stream.peek() === "'") {
+      state.str = stream.next();
+      return 'string';
     }
-    if (stream.match('->') || stream.match('=>') || stream.match('|>') ||
-        stream.match('==') || stream.match('!=') || stream.match('<=') ||
-        stream.match('>=') || stream.match('..') || stream.match('??')) {
-      return 'operator';
-    }
-    stream.next();
-    return 'operator';
+    return lexCode(stream, state);
   },
   languageData: {
     commentTokens: { line: '//', block: { open: '(*', close: '*)' } },
@@ -136,6 +203,8 @@ const almideMode = {
     number: t.number,
     typeName: t.typeName,
     builtin: t.standard(t.variableName),
+    module: t.namespace,
+    interpolation: t.special(t.brace),
     function: t.function(t.variableName),
     variableName: t.variableName,
     operator: t.operator,
@@ -153,6 +222,8 @@ const almideHighlight = HighlightStyle.define([
   { tag: t.number, color: '#ff9e64' },
   { tag: t.typeName, color: '#2ac3de' },
   { tag: t.standard(t.variableName), color: '#7aa2f7' },
+  { tag: t.namespace, color: '#e0af68' },
+  { tag: t.special(t.brace), color: '#89ddff', fontWeight: '600' },
   { tag: t.function(t.variableName), color: '#7dcfff' },
   { tag: t.variableName, color: '#c0caf5' },
   { tag: t.operator, color: '#89ddff' },
