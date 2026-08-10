@@ -15,5 +15,6 @@ effect fn main() -> Unit = {
     |> list.map((i) => spark.at(i, step))
     |> list.join("")
   let g = "<g fill='hsl(${hue},95%,68%)'>${art}</g>"
-  println("<svg viewBox='0 0 400 400'>${g}</svg>")
+  let head = "<svg xmlns='http://www.w3.org/2000/svg'"
+  println("${head} viewBox='0 0 400 400'>${g}</svg>")
 }
