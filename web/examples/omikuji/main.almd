@@ -8,10 +8,10 @@ import random
 
 effect fn main() -> Unit = {
   let omikuji = [
-    "大吉 — Ship it. The CI smiles upon you.",
-    "中吉 — Refactor boldly, the tests will hold.",
-    "小吉 — One bug found is ten bugs prevented.",
-    "末吉 — Read the docs before you write.",
+    "大吉 — Ship it. CI smiles upon you.",
+    "中吉 — Refactor boldly. Tests hold.",
+    "小吉 — One bug found, ten prevented.",
+    "末吉 — Read the docs first.",
     "凶 — Do not deploy on Friday.",
   ]
   let fortune = random.choice(omikuji)!
