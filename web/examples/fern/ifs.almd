@@ -1,0 +1,15 @@
+// This tab is the `ifs` module — the whole fern, in four lines of algebra.
+//
+// Each branch is an affine map (a rotation+scale+shift). The probabilities are
+// the ranges of r: 85% grows the stem, 7% + 7% throw the two pinnae, 1% resets
+// to the base. Change a coefficient and you get a different plant.
+
+fn step(x: Float, y: Float, r: Float) -> (Float, Float) =
+  if r < 0.85 then
+    (0.85 * x + 0.04 * y, 0.85 * y - 0.04 * x + 1.6)
+  else if r < 0.92 then
+    (0.2 * x - 0.26 * y, 0.23 * x + 0.22 * y + 1.6)
+  else if r < 0.99 then
+    (0.28 * y - 0.15 * x, 0.26 * x + 0.24 * y + 0.44)
+  else
+    (0.0, 0.16 * y)

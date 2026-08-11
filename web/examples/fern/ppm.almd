@@ -1,0 +1,32 @@
+// This tab is the `ppm` module — buffer to picture.
+//
+// P3 is the text PPM format: header, then R G B per pixel. `tint` maps a hit
+// count to a green, so dense areas read brighter — that is what makes the
+// fern look like a plant instead of a scatter plot.
+
+import bytes
+
+fn tint(c: Int) -> String = {
+  if c == 0 then "10 18 13"
+  else {
+    let t = if c > 16 then 16 else c
+    let r = int.to_string(44 + t * 5)
+    let g = int.to_string(104 + t * 8)
+    let b = int.to_string(52 + t * 3)
+    "${r} ${g} ${b}"
+  }
+}
+
+effect fn emit(buf: Bytes, w: Int, h: Int) -> Unit = {
+  println("P3")
+  println("${int.to_string(w)} ${int.to_string(h)}")
+  println("255")
+  for y in 0..<h {
+    var row = ""
+    for x in 0..<w {
+      let c = bytes.get_or(buf, y * w + x, 0)
+      row = row + tint(c) + " "
+    }
+    println(string.trim(row))
+  }
+}
