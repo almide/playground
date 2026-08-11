@@ -772,6 +772,33 @@ const ai = initAI({
   },
 });
 
+// --- GitHub star count in the header ---
+// Pure decoration: the link works without it, so every failure path just
+// leaves the badge hidden. Cached for an hour to stay far inside the
+// unauthenticated API rate limit.
+
+(async () => {
+  const el = $('gh-star-count');
+  const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n));
+  try {
+    const cached = JSON.parse(localStorage.getItem('gh-stars') || 'null');
+    if (cached && Date.now() - cached.t < 3_600_000) {
+      el.textContent = fmt(cached.n);
+      el.hidden = false;
+      return;
+    }
+    const resp = await fetch('https://api.github.com/repos/almide/almide');
+    if (!resp.ok) return;
+    const n = (await resp.json()).stargazers_count;
+    if (typeof n !== 'number') return;
+    localStorage.setItem('gh-stars', JSON.stringify({ n, t: Date.now() }));
+    el.textContent = fmt(n);
+    el.hidden = false;
+  } catch (e) {
+    /* offline, ad-blocked, rate-limited — the badge stays hidden */
+  }
+})();
+
 // --- Wire header buttons & boot ---
 
 runBtn.addEventListener('click', runCode);
