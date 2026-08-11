@@ -1,0 +1,17 @@
+// Coin flip — the program draws the side it landed on
+//
+// Print an <svg> document and the Visual tab renders it. This file only decides
+// the flip: `coinview.render` hands back a finished <svg>, so main never touches
+// any markup. `import self.X` loads another tab as a module.
+//
+// Run it again for the other side.
+
+import random
+import self.coinview
+
+effect fn main() -> Unit = {
+  let heads = random.int(0, 1) == 0
+  println(coinview.render(heads))
+}
+
+// Next: ?example=hanabi

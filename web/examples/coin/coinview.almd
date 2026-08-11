@@ -1,0 +1,43 @@
+// This tab is the `coinview` module — the coin itself, and the document.
+//
+// Heads is the polished field with the A mark struck in relief; tails is the
+// satin field with lathe rings. The A mark's hole is not fill-rule: the inner
+// triangle is wound the other way round, so the nonzero rule punches it out.
+//
+// Heredocs ("""...""") interpolate and strip indentation, which keeps the SVG
+// readable as SVG.
+//
+// Try it: change 4.4 to space the rings differently, or swap pol/sat.
+
+import self.gold
+
+let NS = "http://www.w3.org/2000/svg"
+let A = "M0 -19 20 15 -20 15Z M0 -3 -8 11 8 11Z"
+let EDGE = "stroke='#8a5f16' stroke-width='.6' stroke-opacity='.45'"
+let TURN = "fill='none' stroke='#8a5f16' stroke-width='.5'"
+
+fn ring(i: Int) -> String = {
+  let r = float.to_string(int.to_float(i) * 4.4)
+  "<circle r='${r}'/>"
+}
+
+fn render(heads: Bool) -> String = {
+  let rs = list.range(1, 9)
+    |> list.map((i) => ring(i))
+    |> list.join("")
+  let face = match heads {
+    true => gold.strike("<path d='${A}'/>"),
+    _ => "<g ${TURN} opacity='.3'>${rs}</g>",
+  }
+  let fld = match heads { true => "pol", _ => "sat" }
+  """
+  <svg xmlns='${NS}' viewBox='0 0 100 100'>
+  <defs>${gold.DEFS}</defs>
+  <g transform='translate(50 50)'>
+    <circle r='47' fill='url(#rim)'/>
+    <circle r='40.5' fill='url(#${fld})' ${EDGE}/>
+    ${face}
+  </g>
+  </svg>
+  """
+}
