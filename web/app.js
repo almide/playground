@@ -437,6 +437,21 @@ function parsePPM(text) {
   return img;
 }
 
+// A <meta> CSP only applies when it sits inside <head>, ahead of anything it must
+// govern — so splice it in rather than prepending, and never in front of the
+// doctype (that would drop the document into quirks mode).
+const VISUAL_CSP =
+  '<meta http-equiv="Content-Security-Policy" ' +
+  'content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src data:">';
+
+function withVisualCsp(html) {
+  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + VISUAL_CSP);
+  const injectHead = (m) => m + '<head>' + VISUAL_CSP + '</head>';
+  if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, injectHead);
+  if (/^<!doctype[^>]*>/i.test(html)) return html.replace(/^<!doctype[^>]*>/i, injectHead);
+  return VISUAL_CSP + html;
+}
+
 let visualBlobUrl = null;
 
 /** Returns true when stdout rendered as an image (and fills the Visual tab). */
@@ -455,6 +470,20 @@ function renderVisual(stdout) {
     img.src = visualBlobUrl;
     visualEl.innerHTML = '';
     visualEl.appendChild(img);
+    return true;
+  }
+  if (/^<!doctype html/i.test(text) || /^<html[\s>]/i.test(text)) {
+    // Sandboxed iframe, no tokens: no scripts, no forms, no top-level navigation,
+    // opaque origin. The injected CSP also blocks every network fetch, so a shared
+    // program cannot phone home through an <img src> — this matches the SVG path,
+    // where an <img>-rendered SVG is in secure static mode and cannot reach the
+    // network at all. Without it the iframe would be the weaker of the two.
+    const frame = document.createElement('iframe');
+    frame.setAttribute('sandbox', '');
+    frame.title = 'HTML output';
+    frame.srcdoc = withVisualCsp(text);
+    visualEl.innerHTML = '';
+    visualEl.appendChild(frame);
     return true;
   }
   if (text.startsWith('P3')) {
@@ -890,5 +919,13 @@ window.__almidePlayground = {
   setActiveDoc: (text) => {
     editor.setDoc(text, { almd: isAlmd(files[active].name) });
     scheduleCheck();
+  },
+  // Render arbitrary stdout into the Visual tab without compiling anything.
+  // The wasm compiler is built in CI and absent from a checkout, so this is the
+  // only way to exercise the SVG / PPM / HTML renderers locally.
+  renderVisual: (stdout) => {
+    const ok = renderVisual(stdout);
+    if (ok) showTab('visual');
+    return ok;
   },
 };

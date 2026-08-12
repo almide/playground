@@ -338,6 +338,15 @@ button.ai:hover:not(:disabled) {
   max-height: 100%;
   border-radius: 6px;
 }
+/* HTML output: the iframe is its own document, so it needs an explicit box.
+   White ground — an HTML page assumes a page, not the editor's dark surface. */
+#visual iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: #fff;
+}
 #visual canvas.pixelated { image-rendering: pixelated; width: min(100%, 640px); height: auto; }
 .visual-hint { color: var(--text-muted); font-size: 12px; max-width: 40ch; text-align: center; }
 
