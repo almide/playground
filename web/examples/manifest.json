@@ -23,6 +23,7 @@
         { "id": "coin", "title": "Coin flip (SVG)", "files": ["main.almd", "coinview.almd", "gold.almd"] },
         { "id": "fern", "title": "Barnsley fern (IFS)", "files": ["main.almd", "ifs.almd", "ppm.almd"] },
         { "id": "voronoi", "title": "Voronoi (stained glass)", "files": ["main.almd", "glass.almd", "cell.almd"] },
+        { "id": "truchet", "title": "Truchet tiles (SVG)", "files": ["main.almd", "tile.almd", "view.almd"] },
         { "id": "hanabi", "title": "Hanabi (fireworks)", "files": ["main.almd", "spark.almd"] }
       ]
     },

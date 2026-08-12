@@ -1,0 +1,30 @@
+// This tab is the `view` module — the SVG, and nothing but the SVG.
+//
+// `arc` writes one quarter-circle as path data: move to a, sweep to b with
+// radius 1. `doc` wraps the whole design — all 392 arcs — in a single <path>.
+//
+// Heredocs ("""...""") interpolate and strip indentation, so the document
+// stays readable as the document it is.
+//
+// Try it: raise stroke-width for a bolder ink, or change the two colours.
+
+let NS = "http://www.w3.org/2000/svg"
+let INK = "fill='none' stroke='#243040' stroke-width='.18'"
+
+fn arc(a: (Int, Int), b: (Int, Int)) -> String = {
+  let p = "${int.to_string(a.0)} ${int.to_string(a.1)}"
+  let q = "${int.to_string(b.0)} ${int.to_string(b.1)}"
+  "M${p} A1 1 0 0 1 ${q}"
+}
+
+fn doc(side: Int, d: String) -> String = {
+  let s = int.to_string(side)
+  """
+  <svg xmlns='${NS}' viewBox='0 0 ${s} ${s}'>
+  <rect width='${s}' height='${s}' fill='#efe9dc'/>
+  <g ${INK} stroke-linecap='round'>
+    <path d='${d}'/>
+  </g>
+  </svg>
+  """
+}

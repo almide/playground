@@ -1,0 +1,38 @@
+// Truchet tiles — one coin flip per square, and a pattern appears
+//
+// Nothing here plans the wave. Each of the 14x14 squares independently flips a
+// coin and lays down one of two arcs; because the arcs always meet the square's
+// edges at the same four points, whatever the neighbours chose lines up.
+// 196 local decisions, one global pattern.
+//
+// This file is only the tiling: `row` walks a row, `grid` walks the rows, both
+// recursive, both building their string as they go. Not one angle bracket —
+// `view` owns the drawing, and main just hands it the finished path data.
+//
+// The Visual tab renders what you print, so this ends up an <svg> document.
+//
+// Try it: change N for a denser weave.
+
+import self.tile
+import self.view
+
+let N = 14
+
+effect fn row(x: Int, y: Int, acc: String) -> String =
+  if x >= N then acc
+  else {
+    let t = tile.at(x * 2, y * 2)!
+    row(x + 1, y, acc + t)
+  }
+
+effect fn grid(y: Int, acc: String) -> String =
+  if y >= N then acc
+  else {
+    let r = row(0, y, "")!
+    grid(y + 1, acc + r)
+  }
+
+effect fn main() -> Unit =
+  println(view.doc(N * 2, grid(0, "")!))
+
+// Next: ?example=coin

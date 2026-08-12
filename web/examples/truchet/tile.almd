@@ -1,0 +1,24 @@
+// This tab is the `tile` module — one square, and the whole rule.
+//
+// The four points are the midpoints of the square's edges: left, top, right,
+// bottom. A tile joins them in one of two ways — left-top with bottom-right,
+// or top-right with left-bottom — and the coin picks which. That is the entire
+// design; everything else on this page is repetition.
+//
+// Because every arc ends at an edge midpoint, any two neighbours meet.
+//
+// Swap the two branches and the pattern mirrors.
+
+import random
+import self.view
+
+effect fn at(x: Int, y: Int) -> String = {
+  let l = (x, y + 1)
+  let t = (x + 1, y)
+  let r = (x + 2, y + 1)
+  let b = (x + 1, y + 2)
+  if random.int(0, 1) == 0 then
+    view.arc(l, t) + view.arc(b, r)
+  else
+    view.arc(t, r) + view.arc(l, b)
+}
