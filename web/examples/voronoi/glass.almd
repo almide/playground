@@ -1,0 +1,34 @@
+// This tab is the `glass` module — how a cell is coloured.
+//
+// Dark where the two nearest seeds are equally close (that is the leading),
+// brighter toward the middle of a pane (that is the thickness of the glass).
+
+import math
+
+let R = [44, 26, 112, 214, 52, 196, 74, 190]
+let G = [104, 158, 74, 122, 148, 62, 118, 152]
+let B = [190, 150, 186, 44, 96, 104, 208, 48]
+
+fn fract(x: Float) -> Float = x - float.floor(x)
+
+fn seed(ix: Int, iy: Int) -> (Float, Float) = {
+  let x = int.to_float(ix)
+  let y = int.to_float(iy)
+  let a = math.sin(x * 127.1 + y * 311.7) * 43758.5453
+  let b = math.sin(x * 269.5 + y * 183.3) * 43758.5453
+  (fract(a), fract(b))
+}
+
+fn tone(p: (Float, Float)) -> Int =
+  float.to_int(fract(p.0 * 31.7 + p.1 * 17.3) * 8.0)
+
+fn light(edge: Float) -> Float =
+  0.10 + 0.90 * math.fmin(1.0, edge * 26.0)
+
+fn ch(xs: List[Int], col: Int, k: Float) -> String = {
+  let v = list.get(xs, col) ?? 0
+  int.to_string(float.to_int(int.to_float(v) * k))
+}
+
+fn dim(col: Int, k: Float) -> String =
+  "${ch(R, col, k)} ${ch(G, col, k)} ${ch(B, col, k)}"

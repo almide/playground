@@ -1,0 +1,42 @@
+// This tab is the `cell` module — which pane a point belongs to.
+//
+// Only the 3x3 neighbouring cells can hold the nearest seed, so the search is
+// nine lookups — no matter how large the picture gets.
+//
+// `near` returns the nearest distance, the second nearest, and a colour index.
+// The gap between the two distances is what draws the boundary.
+
+import math
+import self.glass
+
+fn near(x: Float, y: Float) -> (Float, Int) = {
+  let ix = float.to_int(float.floor(x))
+  let iy = float.to_int(float.floor(y))
+  var d1 = 9.0
+  var d2 = 9.0
+  var a = (0.0, 0.0)
+  var b = (0.0, 0.0)
+  var col = 0
+  for gx in -1..<2 {
+    for gy in -1..<2 {
+      let p = glass.seed(ix + gx, iy + gy)
+      let px = int.to_float(ix + gx) + p.0
+      let py = int.to_float(iy + gy) + p.1
+      let d = math.sqrt((x - px) * (x - px) + (y - py) * (y - py))
+      if d < d1 then {
+        d2 = d1
+        b = a
+        d1 = d
+        a = (px, py)
+        col = glass.tone(p)
+      } else if d < d2 then {
+        d2 = d
+        b = (px, py)
+      }
+    }
+  }
+  let sx = a.0 - b.0
+  let sy = a.1 - b.1
+  let sep = math.sqrt(sx * sx + sy * sy)
+  ((d2 * d2 - d1 * d1) / (2.0 * sep), col)
+}
