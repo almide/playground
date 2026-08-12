@@ -1,6 +1,7 @@
 // Visual タブのレンダラ(SVG / PPM / HTML)を、コンパイラ抜きで検証する。
 //
-//   node test/visual.mjs
+//   node test/visual.mjs                              # ローカルの web/ を検証
+//   node test/visual.mjs https://almide.github.io/playground/   # 本番を検証
 //
 // wasm コンパイラは CI ビルドなのでチェックアウトには無い。プログラムを走らせずに
 // stdout だけ渡せるよう `__almidePlayground.renderVisual` を叩いている。
@@ -15,15 +16,19 @@ import { spawn } from "node:child_process";
 import { launch } from "./cdp.mjs";
 
 const PORT = 8732;
-const server = spawn("python3", ["-m", "http.server", String(PORT)], {
-  cwd: new URL("../web/", import.meta.url).pathname,
-  stdio: "ignore",
-});
+// 引数で URL を渡せば本番をそのまま検証できる(その場合ローカルサーバは立てない)
+const BASE = process.argv[2] || `http://127.0.0.1:${PORT}/`;
+const server = process.argv[2]
+  ? null
+  : spawn("python3", ["-m", "http.server", String(PORT)], {
+      cwd: new URL("../web/", import.meta.url).pathname,
+      stdio: "ignore",
+    });
 await new Promise((r) => setTimeout(r, 800));
 
 const chrome = await launch({ width: 1200, height: 800 });
 const page = await chrome.page();
-await page.goto(`http://127.0.0.1:${PORT}/`);
+await page.goto(BASE);
 for (let i = 0; i < 40; i++) {
   if (await page.eval(`Boolean(window.__almidePlayground?.renderVisual)`)) break;
   await new Promise((r) => setTimeout(r, 250));
@@ -89,6 +94,6 @@ check((await render(`hello`)) === false, "ただの文字列は Visual にしな
 check((await render(`<div>x</div>`)) === false, "断片(<div>)は Visual にしない");
 
 await chrome.close();
-server.kill();
+server?.kill();
 console.log(failed ? `\n${failed} 件失敗。` : "\nすべて通った。");
 process.exit(failed ? 1 : 0);
