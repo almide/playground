@@ -1,0 +1,45 @@
+// This tab is the `view` module — the SVG, and nothing but the SVG.
+//
+// `walls` and `row` are the usual double recursion over the grid.
+//
+// `trail` is the interesting one. The maze is a tree and every cell records
+// where it was dug from, so the way out is not searched for — you start at the
+// far corner and follow the parents home. The generator already knew.
+//
+// Try it: delete the red <path> and print a maze you have to solve yourself.
+
+import self.grid
+
+fn n(v: Int) -> String = int.to_string(v)
+fn mid(p: (Int, Int)) -> String = "${n(p.0)}.5 ${n(p.1)}.5"
+fn dash(on: Bool, s: String) -> String = if on then s else ""
+
+fn cell(m: grid.Maze, x: Int, y: Int) -> String =
+  dash(x < grid.N and grid.wall_n(m, x, y), "M${n(x)} ${n(y)}h1")
+    + dash(y < grid.N and grid.wall_w(m, x, y), "M${n(x)} ${n(y)}v1")
+
+fn row(m: grid.Maze, x: Int, y: Int, acc: String) -> String =
+  if x > grid.N then acc else row(m, x + 1, y, acc + cell(m, x, y))
+
+fn walls(m: grid.Maze, y: Int, acc: String) -> String =
+  if y > grid.N then acc else walls(m, y + 1, acc + row(m, 0, y, ""))
+
+fn trail(m: grid.Maze, p: (Int, Int), acc: String) -> String =
+  if p.0 == 0 and p.1 == 0 then acc
+  else trail(m, grid.parent(m, p), acc + "L${mid(p)}")
+
+fn doc(m: grid.Maze) -> String = {
+  let s = n(grid.N + 1)
+  let e = grid.N - 1
+  let out = "M${n(e)}.5 ${n(grid.N)}"
+  let way = out + trail(m, (e, e), "") + "L.5 .5L.5 0"
+  """
+  <svg xmlns='http://www.w3.org/2000/svg' viewBox='-.5 -.5 ${s} ${s}'>
+  <rect x='-.5' y='-.5' width='${s}' height='${s}' fill='#efe9dc'/>
+  <g fill='none' stroke-linecap='round'>
+    <path d='${way}' stroke='#c0392b' stroke-width='.34'/>
+    <path d='${walls(m, 0, "")}' stroke='#243040' stroke-width='.16'/>
+  </g>
+  </svg>
+  """
+}

@@ -1,0 +1,49 @@
+// Maze — dig until you are stuck, then back up
+//
+// The recursive backtracker: from the current cell, try the four directions in
+// random order; step into any neighbour that has not been dug yet and recurse.
+// When all four are taken, `step` runs out of directions and returns — that
+// return *is* the backtracking. No stack, no visited set: the call stack is
+// the stack, and "has a direction written in it" means visited.
+//
+// Every cell is reached exactly once, so the passages form a tree: exactly one
+// route between any two cells. That is what makes it a proper maze.
+//
+// The Visual tab renders what you print, so this ends up an <svg> document.
+//
+// Try it: change N in the grid tab for a bigger maze.
+
+import random
+import self.grid
+import self.view
+
+effect fn order(pool: List[Int], acc: List[Int]) -> List[Int] =
+  if list.is_empty(pool) then acc
+  else {
+    let i = random.int(0, list.len(pool) - 1)
+    order(list.remove_at(pool, i), acc + [list.get(pool, i) ?? 0])!
+  }
+
+effect fn step(x: Int, y: Int, ds: List[Int],
+               m: grid.Maze) -> grid.Maze =
+  if list.is_empty(ds) then m
+  else {
+    let d = list.first(ds) ?? 0
+    let nb = grid.ahead(x, y, d)
+    let rest = list.tail(ds)
+    if grid.at(m, nb.0, nb.1) != 0 then step(x, y, rest, m)!
+    else {
+      let seen = grid.mark(m, nb.0, nb.1, grid.back(d))
+      step(x, y, rest, carve(nb.0, nb.1, seen)!)!
+    }
+  }
+
+effect fn carve(x: Int, y: Int, m: grid.Maze) -> grid.Maze =
+  step(x, y, order([1, 2, 3, 4], [])!, m)!
+
+effect fn main() -> Unit = {
+  let start = grid.mark(grid.blank(), 0, 0, 5)
+  println(view.doc(carve(0, 0, start)!))
+}
+
+// Next: ?example=truchet
