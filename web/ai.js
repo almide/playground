@@ -9,8 +9,12 @@
 
 export const MODELS = {
   anthropic: [
-    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet' },
-    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku' },
+    // `extra` is merged into the request body: effort keeps Opus/Sonnet 5's
+    // adaptive thinking shallow so the first token lands fast. Haiku 4.5 has
+    // no effort knob and rejects the field, so it carries no extra.
+    { value: 'claude-opus-5', label: 'Claude Opus 5', extra: { output_config: { effort: 'low' } } },
+    { value: 'claude-sonnet-5', label: 'Claude Sonnet 5', extra: { output_config: { effort: 'low' } } },
+    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
   ],
   openai: [
     { value: 'gpt-4o', label: 'GPT-4o' },
@@ -194,8 +198,9 @@ async function streamAnthropic(apiKey, model, messages, signal, onText) {
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model, max_tokens: 4096, system: ALMIDE_SYSTEM, stream: true,
+      model, max_tokens: 16000, system: ALMIDE_SYSTEM, stream: true,
       messages,
+      ...(MODELS.anthropic.find((m) => m.value === model)?.extra || {}),
     }),
     signal,
   });
@@ -345,8 +350,14 @@ export function initAI(ctx) {
       opt.textContent = m.label;
       els.model.appendChild(opt);
     }
+    // A model id saved before MODELS changed no longer exists as an <option>;
+    // assigning it would blank the select and send an empty model to the API.
     const savedModel = localStorage.getItem('almide-ai-model-' + provider);
-    if (savedModel) els.model.value = savedModel;
+    if (savedModel && MODELS[provider].some((m) => m.value === savedModel)) {
+      els.model.value = savedModel;
+    } else {
+      localStorage.setItem('almide-ai-model-' + provider, els.model.value);
+    }
   }
 
   function onProviderChange() {
