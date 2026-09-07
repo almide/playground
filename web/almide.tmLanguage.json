@@ -10,6 +10,7 @@
     { "include": "#keyword" },
     { "include": "#type" },
     { "include": "#function-def" },
+    { "include": "#pattern" },
     { "include": "#constant" },
     { "include": "#operator" },
     { "include": "#identifier" }
@@ -61,6 +62,12 @@
       "patterns": [
         { "name": "support.type.builtin.almide", "match": "\\b(Int|Float|String|Bool|Unit|Path|List|Map|Set|Option|Result|Bytes|Matrix|Json|IoError)\\b" },
         { "name": "entity.name.type.almide", "match": "\\b[A-Z][a-zA-Z0-9_]*\\b" }
+      ]
+    },
+    "pattern": {
+      "patterns": [
+        { "name": "meta.pattern.as.almide", "match": "\\b([a-z_][a-zA-Z0-9_]*)\\s*(@)(?=\\s*[A-Za-z_\\[(\"0-9])", "captures": { "1": { "name": "variable.other.almide" }, "2": { "name": "keyword.operator.as-pattern.almide" } } },
+        { "name": "meta.pattern.rest.almide", "match": "(?<=[\\[{,])(\\s*)(\\.\\.)([a-z_][a-zA-Z0-9_]*)?(?=\\s*[\\]},])", "captures": { "2": { "name": "keyword.operator.rest.almide" }, "3": { "name": "variable.other.almide" } } }
       ]
     },
     "operator": {
