@@ -34,17 +34,20 @@ const FIXTURES_DIR = resolve(__dirname, "fixtures");
 // (Empty since C-160: pure-Almide bundled modules — path, args — link on wasm.)
 const KNOWN_WASM_WALLS = new Set([]);
 
-function run(args, cwd) {
+function run(args, cwd, extraEnv = {}) {
   try {
     const stdout = execFileSync(ALMIDE_BIN, args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 120_000,
+      // A 300x400 PPM example prints 1.2 MB; the 1 MB default made fern fail
+      // as "[native]" with its own stdout as the error text.
+      maxBuffer: 64 * 1024 * 1024,
       cwd,
       // The wasm leg derives the guest cwd from $PWD, not getcwd() — with a
       // stale PWD (execFileSync keeps the parent's), relative fs reads fail
       // with ENOENT on wasm only. Keep both in sync.
-      env: cwd ? { ...process.env, PWD: cwd } : process.env,
+      env: { ...process.env, ...(cwd ? { PWD: cwd } : {}), ...extraEnv },
     });
     return { ok: true, stdout: stdout.trimEnd() };
   } catch (e) {
@@ -164,6 +167,16 @@ for (const ex of examples) {
     writeFileSync(dest, content);
   }
 
+  // An example that draws on `random` prints a different picture every run,
+  // so its two legs are compared on exit status only; every other example
+  // must be byte-identical across targets, like the fixtures above.
+  const isRandom = ex.files.some(
+    (name) =>
+      name.endsWith(".almd") &&
+      /^\s*import\s+random\b/m.test(
+        readFileSync(join(EXAMPLES_DIR, ex.id, name), "utf8"),
+      ),
+  );
   const native = run(["run", "src/main.almd"], root);
   if (!native.ok) {
     console.error(`✗ example ${ex.id} [native]`);
@@ -178,14 +191,40 @@ for (const ex of examples) {
     exampleFailures++;
     continue;
   }
-  if (wasm.stdout !== native.stdout) {
+  if (!isRandom && wasm.stdout !== native.stdout) {
     console.error(`✗ example ${ex.id} [cross-target drift]`);
     console.error(`  native: ${JSON.stringify(native.stdout)}`);
     console.error(`  wasm:   ${JSON.stringify(wasm.stdout)}`);
     exampleFailures++;
     continue;
   }
-  console.log(`✓ example ${ex.id} (native + wasm byte-identical)`);
+  // The playground itself compiles through the incumbent renderer alone
+  // (crate/src/lib.rs calls almide_mir::pipeline::try_render_wasm_source;
+  // almide#2554), while the CLI's `--target wasm` tries the structural leg
+  // first. Until the playground uses the routed entry, an example must ALSO
+  // pass on the incumbent leg, or it walls in the browser while every other
+  // check here is green.
+  const incumbent = run(["run", "src/main.almd", "--target", "wasm"], root, {
+    ALMIDE_WASM_INCUMBENT: "1",
+  });
+  if (!incumbent.ok) {
+    console.error(`✗ example ${ex.id} [incumbent wasm — the playground's leg]`);
+    console.error(incumbent.stderr || incumbent.stdout);
+    exampleFailures++;
+    continue;
+  }
+  if (!isRandom && incumbent.stdout !== native.stdout) {
+    console.error(`✗ example ${ex.id} [incumbent drift]`);
+    console.error(`  native:    ${JSON.stringify(native.stdout)}`);
+    console.error(`  incumbent: ${JSON.stringify(incumbent.stdout)}`);
+    exampleFailures++;
+    continue;
+  }
+  console.log(
+    isRandom
+      ? `✓ example ${ex.id} (native + wasm + incumbent run; random output not compared)`
+      : `✓ example ${ex.id} (native + wasm + incumbent byte-identical)`,
+  );
 }
 
 rmSync(scratchRoot, { recursive: true, force: true });
