@@ -680,7 +680,10 @@ let manifest = null;
 
 async function loadManifest() {
   try {
-    const resp = await fetch('./examples/manifest.json');
+    // GitHub Pages serves with max-age=600, so a plain fetch keeps a
+    // just-replaced example for up to ten minutes after a deploy. no-cache
+    // revalidates against the ETag on every load: a 304 when nothing moved.
+    const resp = await fetch('./examples/manifest.json', { cache: 'no-cache' });
     manifest = await resp.json();
     buildExamplesMenu();
   } catch (e) {
@@ -727,7 +730,7 @@ async function loadExample(id) {
   try {
     const loaded = await Promise.all(
       ex.files.map(async (name) => {
-        const resp = await fetch('./examples/' + id + '/' + name);
+        const resp = await fetch('./examples/' + id + '/' + name, { cache: 'no-cache' });
         if (!resp.ok) throw new Error(name + ': HTTP ' + resp.status);
         return { name, content: await resp.text() };
       })
