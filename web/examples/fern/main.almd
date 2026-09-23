@@ -16,25 +16,26 @@ import self.ppm
 let W = 300
 let H = 400
 
-effect fn walk(
-  mut buf: Bytes, x: Float, y: Float, n: Int
-) -> Unit =
-  if n == 0 then ()
-  else {
+effect fn walk(mut buf: Bytes, n: Int) -> Unit = {
+  var x = 0.0
+  var y = 0.0
+  for _ in 0..<n {
     let p = ifs.step(x, y, random.float())
-    let px = float.to_int((p.0 + 3.05) * 51.0)
-    let py = H - 12 - float.to_int(p.1 * 37.5)
+    let px = float.to_int(float.floor((p.0 + 3.05) * 51.0))
+    let py = H - 12 - float.to_int(float.floor(p.1 * 37.5))
     if px >= 0 and px < W and py >= 0 and py < H then {
       let j = py * W + px
       let c = bytes.get_or(buf, j, 0)
       if c < 255 then bytes.set_at(buf, j, c + 1)
     }
-    walk(buf, p.0, p.1, n - 1)!
+    x = p.0
+    y = p.1
   }
+}
 
 effect fn main() -> Unit = {
   var buf = bytes.new(W * H)
-  walk(buf, 0.0, 0.0, 500000)!
+  walk(buf, 500000)!
   ppm.emit(buf, W, H)!
 }
 
