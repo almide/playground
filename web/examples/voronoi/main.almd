@@ -33,7 +33,7 @@ effect fn rows(py: Int) -> Unit =
   if py >= H then ()
   else {
     println(string.trim(pixel(py, 0, "")))
-    rows(py + 1)
+    rows(py + 1)!
   }
 
 effect fn main() -> Unit = {
