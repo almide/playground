@@ -22,14 +22,14 @@ effect fn row(x: Int, y: Int, acc: String) -> String =
   if x >= N then acc
   else {
     let t = tile.at(x * 2, y * 2)!
-    row(x + 1, y, acc + t)
+    row(x + 1, y, acc + t)!
   }
 
 effect fn grid(y: Int, acc: String) -> String =
   if y >= N then acc
   else {
     let r = row(0, y, "")!
-    grid(y + 1, acc + r)
+    grid(y + 1, acc + r)!
   }
 
 effect fn main() -> Unit =
