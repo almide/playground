@@ -1,0 +1,51 @@
+name: Test
+
+# The examples and fixtures are checked against the compiler the playground
+# ships with: deploy.yml runs `cargo update almide` against almide's main
+# branch, and main is the newest tag (release or prerelease), so that is the
+# binary installed here. tests/run.mjs runs every fixture and every example
+# on native, on the CLI's wasm route, and on the incumbent renderer the
+# playground itself uses.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the newest almide tag (release or prerelease)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=$(gh release list --repo almide/almide --limit 1 --json tagName --jq '.[0].tagName')
+          echo "almide $tag"
+          gh release download "$tag" --repo almide/almide --pattern 'almide-linux-x86_64.tar.gz' --dir /tmp/almide
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf /tmp/almide/almide-linux-x86_64.tar.gz -C /tmp/almide
+          bin=$(find /tmp/almide -type f -name almide -perm -u+x | head -n1)
+          install -m 755 "$bin" "$HOME/.local/bin/almide"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/almide" --version
+
+      - name: Install wasmtime (the CLI's wasm leg runs on it)
+        run: |
+          set -euo pipefail
+          curl -sSf https://wasmtime.dev/install.sh | bash
+          echo "$HOME/.wasmtime/bin" >> "$GITHUB_PATH"
+
+      - name: Run fixtures and examples on every leg
+        run: ALMIDE_BIN="$HOME/.local/bin/almide" node tests/run.mjs
