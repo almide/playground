@@ -12,7 +12,7 @@ fn fizzbuzz(n: Int) -> String =
     _      => "${n}",
   }
 
-effect fn main() -> Unit =
+fn main() -> Unit =
   for n in list.range(1, 16) {
     println(fizzbuzz(n))
   }

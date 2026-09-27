@@ -17,7 +17,7 @@ fn tint(c: Int) -> String = {
   }
 }
 
-effect fn emit(buf: Bytes, w: Int, h: Int) -> Unit = {
+fn emit(buf: Bytes, w: Int, h: Int) -> Unit = {
   println("P3")
   println("${int.to_string(w)} ${int.to_string(h)}")
   println("255")

@@ -1,8 +1,8 @@
 // Hello, world!
 //
-// The smallest Almide program. `effect fn` marks a function that
-// touches the outside world — printing counts. The body is just the
-// expression after `=`: no braces needed for a single expression.
+// The smallest Almide program. Printing needs no `effect`: `println`
+// works in any fn. The body is just the expression after `=`: no
+// braces needed for a single expression.
 
-effect fn main() -> Unit =
+fn main() -> Unit =
   println("Hello, world!")

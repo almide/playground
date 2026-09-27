@@ -36,7 +36,7 @@ effect fn walk(mut buf: Bytes, n: Int) -> Unit = {
 effect fn main() -> Unit = {
   var buf = bytes.new(W * H)
   walk(buf, 500000)!
-  ppm.emit(buf, W, H)!
+  ppm.emit(buf, W, H)
 }
 
 // Next: ?example=mandelbrot
