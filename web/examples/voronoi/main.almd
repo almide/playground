@@ -29,18 +29,18 @@ fn pixel(py: Int, px: Int, row: String) -> String =
     pixel(py, px + 1, row + c + " ")
   }
 
-effect fn rows(py: Int) -> Unit =
+fn rows(py: Int) -> Unit =
   if py >= H then ()
   else {
     println(string.trim(pixel(py, 0, "")))
-    rows(py + 1)!
+    rows(py + 1)
   }
 
-effect fn main() -> Unit = {
+fn main() -> Unit = {
   println("P3")
   println("${int.to_string(W)} ${int.to_string(H)}")
   println("255")
-  rows(0)!
+  rows(0)
 }
 
 // Next: ?example=fern

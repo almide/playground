@@ -109,7 +109,7 @@ println(s) eprintln(s) assert_eq(a,b) assert_ne(a,b) assert(cond) unwrap_or(opt,
 - if-then-else for expressions. else is optional only when then-branch is Unit
 - for...in for iteration (preferred over do+guard)
 - + for string/list concat, ^ for XOR, not for boolean negation
-- effect fn for side effects, Result[T,E] for errors, Option[T] for nullable
+- effect fn for side effects (fs, http, env, random, clock), Result[T,E] for errors, Option[T] for nullable. println/eprintln need no effect: call them from any fn
 - All stdlib calls need module prefix: list.map(xs, f), NOT map(xs, f)
 - println only takes String. Use int.to_string(n) or float.to_string(n)
 - Empty list = [], empty map = map.new()
@@ -169,7 +169,7 @@ fn fibonacci(n: Int) -> List[Int] = {
   result
 }
 
-effect fn main() -> Result[Unit, String] = {
+fn main() -> Unit = {
   let fibs = fibonacci(10)
   let visual = fibs
     |> list.map((n) => int.to_string(n))
