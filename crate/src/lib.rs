@@ -19,7 +19,7 @@ use almide::parser;
 /// candidate modules for `import self.<name>`; anything else (data files the
 /// runner preopens into the WASI FS) is ignored here.
 type Files = BTreeMap<String, String>;
-/// Same shape `almide_mir::pipeline::try_render_wasm_source` and
+/// Same shape `almide::wasm_route::ModuleSource::Provided` and
 /// `canonicalize_program` take: (module name, parsed program, is_self).
 type SelfModules = Vec<(String, ast::Program, bool)>;
 
@@ -122,9 +122,23 @@ fn modules_for(source: &str, self_modules: SelfModules) -> SelfModules {
     modules
 }
 
-/// Compile a tab set to a WASI module. The wasm path is the v1 trust-spine
-/// renderer — the SAME entry as the native CLI's `--target wasm`
-/// (`almide#782` retired the v0 wasm emitter). Sibling modules ride in via
+/// Render through the structural wasm route — the SAME route the native CLI's
+/// `--target wasm` takes, in its library form for a consumer with no
+/// filesystem (the tabs are the project) — and hand back the stock WASI
+/// preview-1 module the worker's p1 shim loads. A wall is an `Err`, never a
+/// fabricated module.
+fn render_to_wasi(source: &str, modules: &SelfModules) -> Result<Vec<u8>, String> {
+    let routed = almide::wasm_route::render_wasm_routed(
+        "main.almd",
+        source,
+        almide::wasm_route::ModuleSource::Provided(modules),
+        almide::wasm_route::RouteOptions::default(),
+    )
+    .map_err(|e| format!("{e:?}"))?;
+    routed.stock_wasi()
+}
+
+/// Compile a tab set to a WASI module. Sibling modules ride in via
 /// `self_modules`, exactly like `compile_to_wasm_bytes` in the CLI.
 #[wasm_bindgen]
 pub fn compile_project_to_wasm(files_json: &str, entry: &str) -> Result<Vec<u8>, String> {
@@ -133,9 +147,7 @@ pub fn compile_project_to_wasm(files_json: &str, entry: &str) -> Result<Vec<u8>,
     let entry_prog = parse_strict(source, entry)?;
     let self_modules = resolve_self_modules(&files, &entry_prog)?;
     let modules = modules_for(source, self_modules);
-    let wat_text = almide_mir::pipeline::try_render_wasm_source(source, &modules, false)
-        .map_err(|e| format!("{e:?}"))?;
-    wat::parse_str(&wat_text).map_err(|e| format!("wat: {e}"))
+    render_to_wasi(source, &modules)
 }
 
 /// Single-file compatibility wrapper (crate tests, older callers).
@@ -144,9 +156,7 @@ pub fn compile_to_wasm(source: &str) -> Result<Vec<u8>, String> {
     let entry_prog = parse_strict(source, "main.almd")?;
     let _ = entry_prog; // parse gate only; the renderer re-parses internally
     let modules = modules_for(source, Vec::new());
-    let wat_text = almide_mir::pipeline::try_render_wasm_source(source, &modules, false)
-        .map_err(|e| format!("{e:?}"))?;
-    wat::parse_str(&wat_text).map_err(|e| format!("wat: {e}"))
+    render_to_wasi(source, &modules)
 }
 
 // ---------------------------------------------------------------------------
