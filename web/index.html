@@ -13,7 +13,8 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#131316">
+<meta name="theme-color" content="#0b1420">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -42,18 +43,23 @@
 </script>
 <style>
 :root {
-  --bg-deep: #131316;
-  --bg-surface: #1a1a1f;
-  --bg-elevated: #212127;
-  --bg-subtle: #28282f;
-  --border: #2e2e38;
-  --border-subtle: #383842;
-  --text: #ededeb;
-  --text-secondary: #a0a0ab;
-  --text-muted: #6b6b78;
-  --accent: #7c5cbf;
-  --accent-light: #9b7de0;
-  --accent-glow: rgba(124, 92, 191, 0.2);
+  /* Brand palette (ALMIDE Brand Guideline v2): the grounds are the navy of the dark
+     GitHub cover, the accents the shell's teal layers — Shell 01 #14A2A2 through
+     Shell 05 #096578 — and the chrome the ALMIDE Navy #1F3A5F. */
+  --bg-deep: #0b1420;
+  --bg-surface: #101b29;
+  --bg-elevated: #152233;
+  --bg-subtle: #1a2a3d;
+  --border: #22344a;
+  --border-subtle: #2b4058;
+  --text: #f4f7f8;
+  --text-secondary: #a3b3c2;
+  --text-muted: #6b7f93;
+  --accent: #0e7e86;
+  --accent-light: #14a2a2;
+  --accent-strong: #096578;
+  --accent-glow: rgba(20, 162, 162, 0.2);
+  --navy: #1f3a5f;
   --success: #2d6a4f;
   --success-text: #95d5b2;
   --error: #d94f5e;
@@ -69,43 +75,22 @@ body { font-family: var(--sans); background: var(--bg-deep); color: var(--text);
 
 header {
   padding: 14px 24px;
-  background: #d8d8dc;
+  background: #f7fafa;
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 20px;
 }
 header .logo { display: flex; align-items: center; gap: 10px; }
 header h1 {
-  font-size: 17px; font-weight: 600; color: #1a1a1f;
+  font-size: 17px; font-weight: 600; color: #2b2b2b;
   letter-spacing: 0.04em;
 }
-header .mark-wrap {
-  position: relative;
-  width: 28px; height: 28px;
-  border-radius: 6px;
-  overflow: hidden;
-}
+/* Shown as delivered: the brand guideline forbids recolouring the shell. */
 header .mark {
   width: 28px; height: 28px;
   display: block;
-  filter: grayscale(1) contrast(1.2) brightness(0.9);
-}
-header .mark-wrap::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 6px;
-  animation: logo-shimmer 6s ease-in-out infinite;
-  mix-blend-mode: color;
-  pointer-events: none;
-}
-@keyframes logo-shimmer {
-  0%   { background: rgba(124, 92, 191, 0.5); }
-  33%  { background: rgba(90, 120, 220, 0.55); }
-  66%  { background: rgba(150, 80, 180, 0.5); }
-  100% { background: rgba(124, 92, 191, 0.5); }
 }
 header .subtitle {
-  font-size: 12px; color: #606068;
+  font-size: 12px; color: #5a6b7d;
   letter-spacing: 0.02em;
 }
 .actions { display: flex; gap: 8px; position: relative; }
@@ -113,28 +98,28 @@ header .subtitle {
 button {
   padding: 7px 18px;
   border-radius: 6px;
-  border: 1px solid #505060;
-  background: #38384a;
-  color: #e0e0e8;
+  border: 1px solid #2b4f7a;
+  background: var(--navy);
+  color: #e8eef3;
   cursor: pointer; font-size: 12px; font-weight: 500;
   font-family: var(--sans);
   transition: all 0.2s ease;
   letter-spacing: 0.02em;
 }
 button:hover {
-  background: #48485a;
+  background: #28496f;
   color: #fff;
-  border-color: #6a6a7a;
+  border-color: #3c6391;
 }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 button:active { transform: scale(0.98); }
 button.primary {
   background: var(--accent);
   border-color: var(--accent-light);
-  color: #f0e8e9;
+  color: #fff;
 }
 button.primary:hover:not(:disabled) {
-  background: var(--accent-light);
+  background: var(--accent-strong);
   box-shadow: 0 0 20px var(--accent-glow);
 }
 button.primary.running {
@@ -148,7 +133,7 @@ button.ai {
 }
 button.ai:hover:not(:disabled) {
   background: var(--accent);
-  color: #f0e8e9;
+  color: #fff;
   box-shadow: 0 0 20px var(--accent-glow);
 }
 .gh-link {
@@ -156,9 +141,9 @@ button.ai:hover:not(:disabled) {
   display: flex; align-items: center; gap: 7px;
   padding: 7px 14px;
   border-radius: 6px;
-  border: 1px solid #505060;
-  background: #38384a;
-  color: #e0e0e8;
+  border: 1px solid #2b4f7a;
+  background: var(--navy);
+  color: #e8eef3;
   font-size: 12px; font-weight: 500; font-family: var(--sans);
   letter-spacing: 0.02em;
   text-decoration: none;
@@ -434,7 +419,7 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #333340; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-subtle); }
 
 /* --- Responsive --- */
 
@@ -492,7 +477,7 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(8, 8, 14, 0.6);
+    background: rgba(5, 10, 16, 0.6);
     z-index: 40;
   }
   body.ai-open .ai-bar {
@@ -592,7 +577,7 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
 
 <header>
   <div class="logo">
-    <span class="mark-wrap"><img class="mark" src="almide.svg" alt="A"></span>
+    <img class="mark" src="almide.svg" alt="">
     <h1>Almide</h1>
   </div>
   <span class="subtitle">Playground</span>

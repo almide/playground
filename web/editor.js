@@ -249,10 +249,10 @@ const almideTheme = EditorView.theme(
       color: 'var(--text-muted)',
       border: 'none',
     },
-    '.cm-activeLine': { backgroundColor: 'rgba(124, 92, 191, 0.07)' },
-    '.cm-activeLineGutter': { backgroundColor: 'rgba(124, 92, 191, 0.12)' },
+    '.cm-activeLine': { backgroundColor: 'rgba(20, 162, 162, 0.07)' },
+    '.cm-activeLineGutter': { backgroundColor: 'rgba(20, 162, 162, 0.12)' },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-      backgroundColor: 'rgba(124, 92, 191, 0.35) !important',
+      backgroundColor: 'rgba(20, 162, 162, 0.3) !important',
     },
     '.cm-lintRange-error': {
       backgroundImage: 'none',
