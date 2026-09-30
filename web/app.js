@@ -571,7 +571,7 @@ const MOBILE = window.matchMedia('(max-width: 768px)');
 function setMobileView(output) {
   document.body.classList.toggle('view-output', output);
   // The flip button always names the pane it would take you to.
-  for (const id of ['mobile-view-btn', 'embed-view-btn']) $(id).textContent = output ? 'Code' : 'Output';
+  $('mobile-view-btn').textContent = output ? 'Code' : 'Output';
 }
 
 async function runCode() {
@@ -585,7 +585,9 @@ async function runCode() {
   setRunning(true);
   clearOutput();
   showTab('output');
-  if (MOBILE.matches) setMobileView(true);
+  // An embed shows the output under the code instead of flipping to it.
+  if (EMBED) document.body.classList.add('ran');
+  else if (MOBILE.matches) setMobileView(true);
   setStatus('Compiling…');
   const payload = filesPayload();
   const stdoutLines = [];
@@ -845,10 +847,8 @@ $('tab-ast').addEventListener('click', () => showTab('ast'));
 // Mobile bottom bar. The elements exist on desktop too (display: none),
 // so the wiring is unconditional.
 mobileRunBtn.addEventListener('click', runCode);
-for (const id of ['mobile-view-btn', 'embed-view-btn']) {
-  $(id).addEventListener('click', () =>
-    setMobileView(!document.body.classList.contains('view-output')));
-}
+$('mobile-view-btn').addEventListener('click', () =>
+  setMobileView(!document.body.classList.contains('view-output')));
 $('mobile-ai-btn').addEventListener('click', () => document.body.classList.add('ai-open'));
 $('ai-backdrop').addEventListener('click', () => document.body.classList.remove('ai-open'));
 $('ai-close').addEventListener('click', () => document.body.classList.remove('ai-open'));
@@ -869,6 +869,16 @@ if (EMBED) {
     url.searchParams.delete('hide');
     window.open(url, '_blank', 'noopener');
   });
+  // Tell the embedding page how tall the cell is, whenever that changes, so
+  // it can size the frame to it (almide/docs listens for this message).
+  if (window.parent !== window) {
+    new ResizeObserver(() => {
+      window.parent.postMessage(
+        { type: 'almide-playground:height', height: Math.ceil(document.body.getBoundingClientRect().height) },
+        '*',
+      );
+    }).observe(document.body);
+  }
 }
 
 async function boot() {
