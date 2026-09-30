@@ -28,7 +28,11 @@ import {
   ConsoleStdout,
 } from 'https://esm.sh/@bjorn3/browser_wasi_shim@0.4.2';
 
-const ready = init();
+// The deploy stamps every script URL with its commit (`?v=…`, see deploy.yml);
+// carry the stamp to the wasm, which a relative URL would otherwise drop.
+const ready = init({
+  module_or_path: new URL('./pkg/almide_playground_bg.wasm' + self.location.search, import.meta.url),
+});
 
 function post(msg) {
   self.postMessage(msg);

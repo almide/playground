@@ -45,6 +45,18 @@ jobs:
       - name: Build Wasm
         run: cd crate && wasm-pack build --target web --out-dir ../web/pkg
 
+      # GitHub Pages lets a browser keep each file for 10 minutes, so right
+      # after a deploy one page could run this deploy's HTML with the last
+      # one's scripts. Every relative script URL carries the commit instead:
+      # a page only ever loads the scripts it was deployed with.
+      - name: Stamp script URLs with the commit
+        run: |
+          v=${GITHUB_SHA::12}
+          cd web
+          sed -i -E "s#(['\"])\./([A-Za-z0-9_/.-]+\.js)\1#\1./\2?v=$v\1#g" index.html *.js
+          grep -q "app.js?v=$v" index.html
+          grep -q "almide_playground.js?v=$v" worker.js
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
