@@ -353,6 +353,8 @@ button.ai:hover:not(:disabled) {
 }
 .embed-bar a:hover { color: var(--accent-light); }
 .embed-bar button { padding: 4px 14px; font-size: 11px; }
+/* The pane flip, shown only where the panes stack (the narrow layout below). */
+.embed-bar .embed-view { display: none; }
 body.embed header, body.embed .ai-bar { display: none; }
 body.embed .status { padding: 3px 12px; font-size: 10px; }
 body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
@@ -553,6 +555,15 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
   .status { display: none; }
 
   .panel-header { padding: 6px 10px; font-size: 10px; }
+
+  /* An embed already has one bar with Run on it, and no AI sheet to open:
+     the bottom bar would only repeat Run. Its pane flip moves up beside Run. */
+  body.embed .mobile-bar { display: none; }
+  body.embed .embed-bar .embed-view { display: block; }
+  body.embed .embed-bar { gap: 8px; }
+  body.embed .embed-bar button { flex: none; }
+  /* The long label would push Run out of a phone-width frame. */
+  body.embed .embed-bar a .long { display: none; }
 }
 
 /* iOS Safari zooms the page when an editable element under 16px takes focus.
@@ -597,7 +608,8 @@ body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
 
 <div class="embed-bar" id="embed-bar" hidden>
   <span class="embed-title">Almide</span>
-  <a href="#" id="embed-open" title="Open this snippet in the full playground">Open in Playground ↗</a>
+  <a href="#" id="embed-open" title="Open this snippet in the full playground">Open<span class="long"> in Playground</span> ↗</a>
+  <button class="embed-view" id="embed-view-btn">Output</button>
   <button class="primary" id="embed-run-btn" title="Ctrl/Cmd+Enter">Run</button>
 </div>
 

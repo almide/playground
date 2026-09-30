@@ -571,7 +571,7 @@ const MOBILE = window.matchMedia('(max-width: 768px)');
 function setMobileView(output) {
   document.body.classList.toggle('view-output', output);
   // The flip button always names the pane it would take you to.
-  $('mobile-view-btn').textContent = output ? 'Code' : 'Output';
+  for (const id of ['mobile-view-btn', 'embed-view-btn']) $(id).textContent = output ? 'Code' : 'Output';
 }
 
 async function runCode() {
@@ -845,8 +845,10 @@ $('tab-ast').addEventListener('click', () => showTab('ast'));
 // Mobile bottom bar. The elements exist on desktop too (display: none),
 // so the wiring is unconditional.
 mobileRunBtn.addEventListener('click', runCode);
-$('mobile-view-btn').addEventListener('click', () =>
-  setMobileView(!document.body.classList.contains('view-output')));
+for (const id of ['mobile-view-btn', 'embed-view-btn']) {
+  $(id).addEventListener('click', () =>
+    setMobileView(!document.body.classList.contains('view-output')));
+}
 $('mobile-ai-btn').addEventListener('click', () => document.body.classList.add('ai-open'));
 $('ai-backdrop').addEventListener('click', () => document.body.classList.remove('ai-open'));
 $('ai-close').addEventListener('click', () => document.body.classList.remove('ai-open'));
