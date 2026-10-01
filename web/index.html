@@ -59,7 +59,16 @@
   --accent-light: #14a2a2;
   --accent-strong: #096578;
   --accent-glow: rgba(20, 162, 162, 0.2);
+  /* On a navy ground a control lifts toward Shell 01 under the pointer and sinks to
+     Shell 05 when pressed — darkening on hover reads as no change, the button just
+     loses contrast with the page. */
+  --accent-hover: var(--accent-light);
+  --accent-press: var(--accent-strong);
   --navy: #1f3a5f;
+  --navy-hover: #28496f;
+  --navy-press: #172d4a;
+  --error-hover: #e3646f;
+  --error-press: #b83e4c;
   --success: #2d6a4f;
   --success-text: #95d5b2;
   --error: #d94f5e;
@@ -107,24 +116,41 @@ button {
   letter-spacing: 0.02em;
 }
 button:hover {
-  background: #28496f;
+  background: var(--navy-hover);
   color: #fff;
   border-color: #3c6391;
 }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
-button:active { transform: scale(0.98); }
-button.primary {
+/* A click is shorter than the 0.2s ease, so the press state would never fully show. */
+button:active { transform: scale(0.98); transition-duration: 0.05s; }
+/* Only the unclassed navy buttons; classed ones (tabs, menu items) own their grounds. */
+button:not([class]):active { background: var(--navy-press); }
+button.primary, button.fix-btn {
   background: var(--accent);
   border-color: var(--accent-light);
   color: #fff;
 }
-button.primary:hover:not(:disabled) {
-  background: var(--accent-strong);
+button.primary:hover:not(:disabled), button.fix-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
   box-shadow: 0 0 20px var(--accent-glow);
 }
-button.primary.running {
-  background: var(--error);
-  border-color: var(--error);
+button.primary:active:not(:disabled), button.fix-btn:active:not(:disabled) {
+  background: var(--accent-press);
+  border-color: var(--accent);
+  box-shadow: none;
+}
+/* Stop keeps its red through hover and press instead of falling back to teal. */
+button.primary.running { background: var(--error); border-color: var(--error); }
+button.primary.running:hover:not(:disabled) {
+  background: var(--error-hover);
+  border-color: var(--error-hover);
+  box-shadow: 0 0 20px rgba(217, 79, 94, 0.25);
+}
+button.primary.running:active:not(:disabled) {
+  background: var(--error-press);
+  border-color: var(--error-press);
+  box-shadow: none;
 }
 button.ai {
   background: var(--bg-elevated);
@@ -133,8 +159,13 @@ button.ai {
 }
 button.ai:hover:not(:disabled) {
   background: var(--accent);
+  border-color: var(--accent-light);
   color: #fff;
   box-shadow: 0 0 20px var(--accent-glow);
+}
+button.ai:active:not(:disabled) {
+  background: var(--accent-press);
+  box-shadow: none;
 }
 .gh-link {
   margin-left: auto;
@@ -311,7 +342,6 @@ button.ai:hover:not(:disabled) {
 .out-line { white-space: pre-wrap; word-break: break-word; }
 .out-line.err-line { color: var(--error-text); }
 .fix-btn {
-  background: var(--accent); color: #fff; border: none;
   padding: 6px 16px; border-radius: 6px; cursor: pointer;
   font-family: var(--sans); font-size: 13px; font-weight: 500;
 }
@@ -564,6 +594,10 @@ body.embed .output-area { flex: none; max-height: 320px; padding: 14px 20px; }
     font-size: 15px;
   }
   .mobile-bar .mobile-run.running { background: var(--error); border-color: var(--error); }
+  /* Touch has no hover, so the press is the only feedback a tap gets. */
+  .mobile-bar button:active { background: var(--bg-subtle); }
+  .mobile-bar .mobile-run:active { background: var(--accent-press); border-color: var(--accent-press); }
+  .mobile-bar .mobile-run.running:active { background: var(--error-press); border-color: var(--error-press); }
 
   .status { display: none; }
 
