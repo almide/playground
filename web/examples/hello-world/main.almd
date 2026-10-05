@@ -2,7 +2,9 @@
 //
 // The smallest Almide program. Printing needs no `effect`: `println`
 // works in any fn. The body is just the expression after `=`: no
-// braces needed for a single expression.
+// braces needed for a single expression. Indenting a second line does
+// not add it to the body; several statements need braces:
+// `fn main() -> Unit = { ... }`, one statement per line inside.
 
 fn main() -> Unit =
   println("Hello, world!")
