@@ -38,7 +38,7 @@ Match:      match x { some(v) => v, none => "" }
 For:        for x in xs { ... }
             for (i, x) in list.enumerate(xs) { ... }
 Range:      0..<5 = [0,1,2,3,4]   1...5 = [1,2,3,4,5]
-Do loop:    do { guard cond else ok(()) ... }      (* dynamic break only *)
+While:      while cond { ... }                     (* no break/continue: recurse for early exit *)
 Guard:      guard cond else err(msg)               (* early exit *)
 Lambda:     (x) => expr
 Concat:     "a" + "b"   [1] + [2]               (* + for string AND list *)
@@ -55,59 +55,58 @@ Operators:  + - * / % ^ == != < > <= >= + and or not |>
 
 ## Stdlib (auto-imported)
 
-string: trim split join len lines chars pad_start pad_end slice contains
+string: trim split len lines to_list pad_start pad_end slice contains
   starts_with ends_with to_upper to_lower replace replace_first
-  get index_of last_index_of repeat from_bytes to_bytes reverse
+  get index_of last_index_of repeat reverse
   is_empty is_digit is_alpha is_alphanumeric is_whitespace
-  strip_prefix strip_suffix count capitalize codepoint from_codepoint
+  strip_prefix strip_suffix count capitalize to_codepoint from_codepoint
   trim_start trim_end
 
-list: len get get_or set swap first last sort sort_by reverse contains index_of
+list: len get set swap first last sort sort_by reverse contains index_of
   any all map flat_map filter find fold enumerate zip flatten
   take drop chunk unique join sum product min max is_empty
   filter_map take_while drop_while count partition reduce group_by
-  insert remove_at find_index update scan intersperse windows dedup zip_with repeat
+  insert remove_at find_index update scan intersperse window dedup zip_with repeat
 
-map: new get get_or set contains remove merge keys values len
-  entries from_list is_empty map filter from_entries
+map: new get set contains remove merge keys values len
+  to_list from_list is_empty map filter fold
 
-int: to_string to_hex band bor bxor bshl bshr bnot clamp
-     wrap_add wrap_mul rotate_right rotate_left to_u32 to_u8
+int: to_string parse to_hex abs pow min max clamp band bor bxor bshl bshr bnot
+     wrap_add wrap_mul wrap rotate_right rotate_left from_saturating
 
-float: to_string to_int from_int round floor ceil abs sqrt parse min max clamp
+float: to_string from parse round floor ceil abs pow min max clamp
 
-fs (effect): read_text write read_lines append mkdir_p exists is_dir
-  is_file remove list_dir copy rename
+math: sqrt sin cos tan log exp pi e
 
-path: join dirname basename extension is_absolute
-
-env (effect): unix_timestamp millis args get set cwd sleep_ms
-
-process (effect): exec exec_status exit stdin_lines
-
-io (effect): read_line print read_all
+datetime: now now_ms year month day hour minute second weekday
+  to_iso parse_iso from_parts format
 
 ## Import-required modules
 
-import json   — parse stringify get get_string get_int get_bool get_array
-                keys to_string to_int from_string from_int from_bool
-                null array from_map get_float from_float stringify_pretty
-import math   — min max abs pow pi e sin cos tan log exp sqrt
-import random — int float choice shuffle
-import time   — now millis sleep year month day hour minute second
-                weekday to_iso from_parts
-import regex  — match full_match find find_all replace replace_first
-                split captures
-import encoding — hex_encode hex_decode base64_encode base64_decode
-import args   — flag option option_or positional
+import fs      — (effect) read_text write_text read_lines append_text mkdir_p
+                 exists is_dir is_file remove list_dir copy rename
+import path    — join dirname basename extension is_absolute
+import env     — (effect) args get set cwd sleep_ms
+import process — (effect) exec exit
+import io      — (effect) read_line print read_all
+import json    — parse stringify stringify_pretty   (Value readers are in value:
+                 value.get value.get_string value.as_int value.object value.string ...)
+import random  — int float choice shuffle
+import regex   — is_match full_match find find_all replace replace_first
+                 split captures
+import hex     — encode decode
+import base64  — encode decode
+import bytes   — from_string to_string_lossy from_list
+import args    — has_flag option positional
 
 ## Built-in functions (no prefix)
 
-println(s) eprintln(s) assert_eq(a,b) assert_ne(a,b) assert(cond) unwrap_or(opt,default)
+println(s) eprintln(s) assert_eq(a,b) assert_ne(a,b) assert(cond)
+Fallback: opt ?? default   (Option or Result)
 
 ## Rules
 - if-then-else for expressions. else is optional only when then-branch is Unit
-- for...in for iteration (preferred over do+guard)
+- for...in for iteration; while cond { } when the bound is unknown
 - + for string/list concat, ^ for XOR, not for boolean negation
 - effect fn for side effects (fs, http, env, random, clock), Result[T,E] for errors, Option[T] for nullable. println/eprintln need no effect: call them from any fn
 - All stdlib calls need module prefix: list.map(xs, f), NOT map(xs, f)
@@ -121,7 +120,7 @@ println(s) eprintln(s) assert_eq(a,b) assert_ne(a,b) assert(cond) unwrap_or(opt,
 - Lists are immutable: list.set/list.swap return NEW lists
 
 ## Immutable list patterns
-- list.get(xs, i) returns nullable. Use list.get_or(xs, i, default) for non-null
+- list.get(xs, i) returns an Option. Use list.get(xs, i) ?? default for a non-null value
 - list.set(xs, i, v) returns a new list. Assign: var a = xs; a = list.set(a, i, v)
 - list.swap(xs, i, j) returns a new list with elements swapped
 - For algorithms (sort, etc): use var + tuple return:
@@ -173,7 +172,7 @@ fn main() -> Unit = {
   let fibs = fibonacci(10)
   let visual = fibs
     |> list.map((n) => int.to_string(n))
-    |> string.join(", ")
+    |> list.join(", ")
   println("Fibonacci: \${visual}")
 
   let colors = [Red, Green, Custom(255, 128, 0)]
