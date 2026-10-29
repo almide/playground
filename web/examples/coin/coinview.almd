@@ -17,7 +17,7 @@ let EDGE = "stroke='#8a5f16' stroke-width='.6' stroke-opacity='.45'"
 let TURN = "fill='none' stroke='#8a5f16' stroke-width='.5'"
 
 fn ring(i: Int) -> String = {
-  let r = float.to_string(int.to_float(i) * 4.4)
+  let r = float.to_string(float.from(i) * 4.4)
   "<circle r='${r}'/>"
 }
 

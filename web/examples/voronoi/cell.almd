@@ -10,8 +10,8 @@ import math
 import self.glass
 
 fn near(x: Float, y: Float) -> (Float, Int) = {
-  let ix = float.to_int(float.floor(x))
-  let iy = float.to_int(float.floor(y))
+  let ix = int.from_saturating(float.floor(x))
+  let iy = int.from_saturating(float.floor(y))
   var d1 = 9.0
   var d2 = 9.0
   var a = (0.0, 0.0)
@@ -20,8 +20,8 @@ fn near(x: Float, y: Float) -> (Float, Int) = {
   for gx in -1..<2 {
     for gy in -1..<2 {
       let p = glass.seed(ix + gx, iy + gy)
-      let px = int.to_float(ix + gx) + p.0
-      let py = int.to_float(iy + gy) + p.1
+      let px = float.from(ix + gx) + p.0
+      let py = float.from(iy + gy) + p.1
       let d = math.sqrt((x - px) * (x - px) + (y - py) * (y - py))
       if d < d1 then {
         d2 = d1

@@ -6,8 +6,8 @@
 import math
 
 fn at(i: Int, step: Float) -> String = {
-  let a = step * int.to_float(i / 7)
-  let t = int.to_float(i % 7)
+  let a = step * float.from(i / 7)
+  let t = float.from(i % 7)
   let d = 16.0 + t * 23.0
   let x = float.to_string(200.0 + d * math.cos(a))
   let y = float.to_string(200.0 + d * math.sin(a))

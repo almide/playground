@@ -30,7 +30,7 @@ effect fn step(x: Int, y: Int, ds: List[Int],
   else {
     let d = list.first(ds) ?? 0
     let nb = grid.ahead(x, y, d)
-    let rest = list.tail(ds)
+    let rest = list.drop(ds, 1)
     if grid.at(m, nb.0, nb.1) != 0 then step(x, y, rest, m)!
     else {
       let seen = grid.mark(m, nb.0, nb.1, grid.back(d))

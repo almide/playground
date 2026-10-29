@@ -21,8 +21,8 @@ let SCALE = 8.0
 fn pixel(py: Int, px: Int, row: String) -> String =
   if px >= W then row
   else {
-    let x = int.to_float(px) / int.to_float(W) * SCALE
-    let y = int.to_float(py) / int.to_float(H) * SCALE
+    let x = float.from(px) / float.from(W) * SCALE
+    let y = float.from(py) / float.from(H) * SCALE
     let r = cell.near(x, y)
     let k = glass.light(r.0)
     let c = glass.dim(r.1, k)
