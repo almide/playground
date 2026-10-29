@@ -26,7 +26,7 @@ effect fn walk(mut buf: Bytes, n: Int) -> Unit = {
     if px >= 0 and px < W and py >= 0 and py < H then {
       let j = py * W + px
       let c = bytes.get(buf, j) ?? 0
-      if c < 255 then bytes.set_at(buf, j, c + 1)
+      if c < 255 then bytes.put_u8(buf, j, c + 1)
     }
     x = p.0
     y = p.1
