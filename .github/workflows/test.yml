@@ -2,10 +2,11 @@ name: Test
 
 # The examples and fixtures are checked against the compiler the playground
 # ships with: deploy.yml runs `cargo update almide` against almide's main
-# branch, and main is the newest tag (release or prerelease), so that is the
-# binary installed here. tests/run.mjs runs every fixture and every example
-# on native, on the CLI's wasm route, and on the incumbent renderer the
-# playground itself uses.
+# branch, so this job builds the almide CLI at main's current head. (A release
+# merge reaches main before its tag exists, so "the newest tag" can lag behind
+# what the deploy compiles with.) tests/run.mjs runs every fixture and every
+# example on native, on the CLI's wasm route, and on the incumbent renderer
+# the playground itself uses.
 on:
   pull_request:
   push:
@@ -18,7 +19,7 @@ permissions:
 jobs:
   examples:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -26,20 +27,33 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install the newest almide tag (release or prerelease)
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Resolve almide main's head
         run: |
           set -euo pipefail
-          tag=$(gh release list --repo almide/almide --limit 1 --json tagName --jq '.[0].tagName')
-          echo "almide $tag"
-          gh release download "$tag" --repo almide/almide --pattern 'almide-linux-x86_64.tar.gz' --dir /tmp/almide
-          mkdir -p "$HOME/.local/bin"
-          tar -xzf /tmp/almide/almide-linux-x86_64.tar.gz -C /tmp/almide
-          bin=$(find /tmp/almide -type f -name almide -perm -u+x | head -n1)
-          install -m 755 "$bin" "$HOME/.local/bin/almide"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/almide" --version
+          sha=$(git ls-remote https://github.com/almide/almide.git refs/heads/main | cut -f1)
+          test -n "$sha"
+          echo "almide main $sha"
+          echo "ALMIDE_SHA=$sha" >> "$GITHUB_ENV"
+
+      - name: Cache the almide build
+        id: almide-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/almide-main
+          key: almide-main-${{ env.ALMIDE_SHA }}
+
+      - name: Install Rust
+        if: steps.almide-cache.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build almide at main's head
+        if: steps.almide-cache.outputs.cache-hit != 'true'
+        run: cargo install --locked --git https://github.com/almide/almide.git --rev "$ALMIDE_SHA" --root "$HOME/.local/almide-main" almide
+
+      - name: Put almide on PATH
+        run: |
+          echo "$HOME/.local/almide-main/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/almide-main/bin/almide" --version
 
       - name: Install wasmtime (the CLI's wasm leg runs on it)
         run: |
@@ -48,4 +62,4 @@ jobs:
           echo "$HOME/.wasmtime/bin" >> "$GITHUB_PATH"
 
       - name: Run fixtures and examples on every leg
-        run: ALMIDE_BIN="$HOME/.local/bin/almide" node tests/run.mjs
+        run: ALMIDE_BIN="$HOME/.local/almide-main/bin/almide" node tests/run.mjs
