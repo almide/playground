@@ -84,8 +84,8 @@
     },
     "identifier": {
       "patterns": [
-        { "name": "support.function.builtin.almide", "match": "\\b(println|eprintln|assert_eq|assert_ne|assert|unwrap_or)\\b" },
-        { "name": "support.module.almide", "match": "\\b(string|list|map|set|int|float|math|datetime|error|value|bytes|matrix|option|result|prim|fs|env|process|io|json|random|regex|testing|log|path|args|http|net|zlib|base64|hex|html|mem)\\b(?=\\.)" },
+        { "name": "support.function.builtin.almide", "match": "\\b(println|eprintln|assert_eq|assert_ne|assert)\\b" },
+        { "name": "support.module.almide", "match": "\\b(string|list|map|set|int|float|bool|math|datetime|error|value|bytes|matrix|option|result|prim|fs|env|process|io|json|random|regex|testing|path|args|http|net|zlib|base64|hex|html|hash|secret|bigint|url|uuid|unix|deque|heap)\\b(?=\\.)" },
         { "name": "variable.language.almide", "match": "\\b(self|_)\\b" },
         { "name": "entity.name.function.predicate.almide", "match": "\\b[a-z_][a-zA-Z0-9_]*\\?" },
         { "name": "variable.other.almide", "match": "\\b[a-z_][a-zA-Z0-9_]*\\b" }

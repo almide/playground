@@ -34,13 +34,14 @@ const KEYWORDS = new Set([
   'guard', 'break', 'continue', 'while', 'local', 'mod', 'fan',
 ]);
 const BOOLS = new Set(['true', 'false']);
-const BUILTINS = new Set(['println', 'eprintln', 'assert', 'assert_eq', 'assert_ne', 'unwrap_or']);
+const BUILTINS = new Set(['println', 'eprintln', 'assert', 'assert_eq', 'assert_ne']);
 // Kept in sync with `support.module.almide` in almide.tmLanguage.json.
 const MODULES = new Set([
-  'string', 'list', 'map', 'set', 'int', 'float', 'math', 'datetime', 'error',
-  'value', 'bytes', 'matrix', 'option', 'result', 'prim', 'fs', 'env', 'process',
-  'io', 'json', 'random', 'regex', 'testing', 'log', 'path', 'args', 'http',
-  'net', 'zlib', 'base64', 'hex', 'html', 'mem', 'time', 'encoding', 'hash', 'term',
+  'string', 'list', 'map', 'set', 'int', 'float', 'bool', 'math', 'datetime',
+  'error', 'value', 'bytes', 'matrix', 'option', 'result', 'prim', 'fs', 'env',
+  'process', 'io', 'json', 'random', 'regex', 'testing', 'path', 'args',
+  'http', 'net', 'zlib', 'base64', 'hex', 'html', 'hash', 'secret', 'bigint',
+  'url', 'uuid', 'unix', 'deque', 'heap',
 ]);
 
 // Text between the quotes. Stops at `${` so the interpolated expression is

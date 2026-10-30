@@ -24,7 +24,7 @@ fn emit(buf: Bytes, w: Int, h: Int) -> Unit = {
   for y in 0..<h {
     var row = ""
     for x in 0..<w {
-      let c = bytes.get_or(buf, y * w + x, 0)
+      let c = bytes.get(buf, y * w + x) ?? 0
       row = row + tint(c) + " "
     }
     println(string.trim(row))

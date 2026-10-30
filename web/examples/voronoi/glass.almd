@@ -12,22 +12,22 @@ let B = [190, 150, 186, 44, 96, 104, 208, 48]
 fn fract(x: Float) -> Float = x - float.floor(x)
 
 fn seed(ix: Int, iy: Int) -> (Float, Float) = {
-  let x = int.to_float(ix)
-  let y = int.to_float(iy)
+  let x = float.from(ix)
+  let y = float.from(iy)
   let a = math.sin(x * 127.1 + y * 311.7) * 43758.5453
   let b = math.sin(x * 269.5 + y * 183.3) * 43758.5453
   (fract(a), fract(b))
 }
 
 fn tone(p: (Float, Float)) -> Int =
-  float.to_int(fract(p.0 * 31.7 + p.1 * 17.3) * 8.0)
+  int.from_saturating(fract(p.0 * 31.7 + p.1 * 17.3) * 8.0)
 
 fn light(edge: Float) -> Float =
-  0.10 + 0.90 * math.fmin(1.0, edge * 26.0)
+  0.10 + 0.90 * float.min(1.0, edge * 26.0)
 
 fn ch(xs: List[Int], col: Int, k: Float) -> String = {
   let v = list.get(xs, col) ?? 0
-  int.to_string(float.to_int(int.to_float(v) * k))
+  int.to_string(int.from_saturating(float.from(v) * k))
 }
 
 fn dim(col: Int, k: Float) -> String =

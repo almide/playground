@@ -433,7 +433,7 @@ fn main() -> Unit = {
   for row in 0..<5 {
     var line = ""
     for col in 0..<20 {
-      let v = wave(col.to_float() / 5.0, row.to_float() / 3.0)
+      let v = wave(float.from(col) / 5.0, float.from(row) / 3.0)
       line = line + if v > 0.0 then "#" else "."
     }
     println(line)

@@ -10,7 +10,7 @@ import self.spark
 effect fn main() -> Unit = {
   let hue = int.to_string(random.int(0, 359))
   let n = random.int(22, 34)
-  let step = 6.2832 / int.to_float(n)
+  let step = 6.2832 / float.from(n)
   let art = list.range(0, n * 7)
     |> list.map((i) => spark.at(i, step))
     |> list.join("")

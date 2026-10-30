@@ -6,7 +6,7 @@ fn sum(xs: List[Float]) -> Float =
 
 fn mean(xs: List[Float]) -> Float =
   if list.is_empty(xs) then 0.0
-  else sum(xs) / int.to_float(list.len(xs))
+  else sum(xs) / float.from(list.len(xs))
 
 // min/max return an Option (the list may be empty) — `??` supplies
 // the fallback.

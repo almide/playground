@@ -13,7 +13,7 @@ fn main() -> Unit = {
   let n = 180
   var body = ""
   for i in 0..<n {
-    let t = 6.283185307179586 * int.to_float(i) / int.to_float(n)
+    let t = 6.283185307179586 * float.from(i) / float.from(n)
     // Try it: change the 3.0 / 2.0 frequency pair (5.0 and 4.0 gets wild),
     // or the dot count n.
     let cx = 200.0 + 130.0 * math.cos(3.0 * t)

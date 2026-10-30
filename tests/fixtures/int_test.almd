@@ -6,7 +6,7 @@ effect fn main() -> Result[Unit, String] = {
   assert_eq(int.band(6, 3), 2)
   assert_eq(int.bor(4, 2), 6)
   assert_eq(int.bxor(5, 3), 6)
-  assert_eq(int.to_u8(256), 0)
-  assert_eq(int.to_u8(255), 255)
+  assert_eq(int.wrap(256, 8), 0)
+  assert_eq(int.wrap(255, 8), 255)
   println("int: ok")
 }

@@ -11,8 +11,8 @@ type Row = { name: String, score: Int }
 fn parse_row(line: String) -> Row = {
   let cols = string.split(line, ",")
   {
-    name: list.get_or(cols, 0, "?"),
-    score: int.parse(list.get_or(cols, 1, "0")) ?? 0,
+    name: list.get(cols, 0) ?? "?",
+    score: int.parse(list.get(cols, 1) ?? "0") ?? 0,
   }
 }
 

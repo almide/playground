@@ -2,11 +2,11 @@ import json
 
 effect fn main() -> Result[Unit, String] = {
   let j = json.parse("{\"name\":\"Almide\",\"version\":1}")!
-  assert_eq(json.get_string(j, "name"), some("Almide"))
-  assert_eq(json.get_int(j, "version"), some(1))
-  assert_eq(json.get_string(j, "missing"), none)
-  assert_eq(value.keys(j), ["name", "version"])
-  assert_eq(json.stringify(value.str("hello")), "\"hello\"")
+  assert_eq(value.get_string(j, "name"), some("Almide"))
+  assert_eq(value.get_int(j, "version"), some(1))
+  assert_eq(value.get_string(j, "missing"), none)
+  assert_eq(list.map(value.as_object(j) ?? [], (kv) => kv.0), ["name", "version"])
+  assert_eq(json.stringify(value.string("hello")), "\"hello\"")
   assert_eq(json.stringify(value.int(42)), "42")
   assert_eq(json.stringify(value.bool(true)), "true")
   println("json: ok")
