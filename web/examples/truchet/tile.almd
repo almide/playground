@@ -1,14 +1,3 @@
-// This tab is the `tile` module — one square, and the whole rule.
-//
-// The four points are the midpoints of the square's edges: left, top, right,
-// bottom. A tile joins them in one of two ways — left-top with bottom-right,
-// or top-right with left-bottom — and the coin picks which. That is the entire
-// design; everything else on this page is repetition.
-//
-// Because every arc ends at an edge midpoint, any two neighbours meet.
-//
-// Swap the two branches and the pattern mirrors.
-
 import random
 import self.view
 

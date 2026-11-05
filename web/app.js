@@ -19,9 +19,7 @@ const STORAGE_KEY = 'almide-playground-files-v2';
 const CHECK_DEBOUNCE_MS = 500;
 const MAX_OUTPUT_LINES = 5000;
 
-const DEFAULT_MAIN = `// Mini Markdown → HTML — ADT + pattern match + pipes + string interp
-
-type Block =
+const DEFAULT_MAIN = `type Block =
   | Heading(Int, String)
   | Bullet(String)
   | Para(String)

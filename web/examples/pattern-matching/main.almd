@@ -1,16 +1,7 @@
-// Pattern matching
-//
-// An ADT (algebraic data type) declares every shape a value can take.
-// `match` must then cover every variant — the compiler checks this at
-// compile time, so a forgotten case is an error, not a runtime surprise.
-
 type Shape =
   | Circle(Float)
   | Rect(Float, Float)
   | Triangle(Float, Float)
-
-// Try it: delete the Triangle arm below and press Run — the error tells
-// you exactly which case went missing.
 
 fn area(s: Shape) -> Float =
   match s {
@@ -18,8 +9,6 @@ fn area(s: Shape) -> Float =
     Rect(w, h) => w * h
     Triangle(b, h) => 0.5 * b * h
   }
-
-// Payloads destructure right in the arm — no casts, no field access.
 
 fn describe(s: Shape) -> String =
   match s {
@@ -34,5 +23,3 @@ fn main() -> Unit = {
     println("${describe(s)} -> area ${float.to_string(area(s))}")
   }
 }
-
-// Next: ?example=pipes-and-lists

@@ -1,15 +1,3 @@
-// Voronoi — scatter seeds, colour by the nearest one
-//
-// Every pixel asks: which seed am I closest to? That single question draws
-// giraffe spots, dried mud, soap foam — and here, stained glass.
-//
-// Both loops are recursion: `rows` walks the rows, and inside it `pixel` walks
-// the columns, building the row as it goes.
-//
-// The Visual tab renders what you print, so this emits a PPM image.
-//
-// Try it: change SCALE for bigger or smaller panes.
-
 import string
 import self.cell
 import self.glass
@@ -42,5 +30,3 @@ fn main() -> Unit = {
   println("255")
   rows(0)
 }
-
-// Next: ?example=fern

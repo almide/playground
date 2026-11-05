@@ -1,9 +1,3 @@
-// Hanabi — summer fireworks as generative SVG
-//
-// `import self.spark` loads the spark.almd tab as a module. Each run
-// picks a new hue and a new number of rays, so no two flowers are alike.
-// Print an <svg> document and the Visual tab renders it.
-
 import random
 import self.spark
 
