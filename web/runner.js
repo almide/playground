@@ -1,14 +1,9 @@
-// Main-thread wrapper around worker.js. One outstanding heavy job at a time
-// (run / rust / ast); `check` requests are cheap and may overlap. Cancel is
-// worker.terminate() + respawn — every pending request rejects, and the next
-// request pays the wasm re-init cost (~100ms, acceptable for a manual stop).
-
 const RUN_TIMEOUT_MS = 30_000;
 
 export class Runner {
   constructor() {
     this.nextId = 1;
-    this.pending = new Map(); // id → { resolve, reject, onEvent, timer }
+    this.pending = new Map();
     this.spawn();
   }
 
@@ -16,7 +11,6 @@ export class Runner {
     this.worker = new Worker('./worker.js', { type: 'module' });
     this.worker.onmessage = (e) => this.dispatch(e.data);
     this.worker.onerror = (e) => {
-      // A worker-level error kills every in-flight request.
       const err = new Error('worker error: ' + (e.message || 'unknown'));
       this.rejectAll(err);
     };
@@ -59,7 +53,6 @@ export class Runner {
     });
   }
 
-  /** Terminate the worker (stops runaway user code) and start a fresh one. */
   cancel() {
     this.worker.terminate();
     this.rejectAll(new Error('cancelled'));

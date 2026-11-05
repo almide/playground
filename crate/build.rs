@@ -3,11 +3,9 @@ use std::process::Command;
 fn main() {
     println!("cargo:rerun-if-changed=Cargo.lock");
 
-    // Get git commit hash of this playground repo
     let pg_commit = git_short_hash().unwrap_or_else(|| "unknown".to_string());
     println!("cargo:rustc-env=PLAYGROUND_COMMIT={}", pg_commit);
 
-    // Get almide dependency version + commit from Cargo.lock
     let (almide_ver, almide_commit) = parse_lockfile();
     println!("cargo:rustc-env=ALMIDE_VERSION={}", almide_ver);
     println!("cargo:rustc-env=ALMIDE_COMMIT={}", almide_commit);
@@ -31,11 +29,6 @@ fn parse_lockfile() -> (String, String) {
         Err(_) => return ("unknown".to_string(), "unknown".to_string()),
     };
 
-    // Cargo.lock format:
-    // [[package]]
-    // name = "almide"
-    // version = "0.1.0"
-    // source = "git+https://...#87f3971c2d76..."
     let mut version = "unknown".to_string();
     let mut commit = "unknown".to_string();
     let mut found_almide = false;
@@ -51,12 +44,11 @@ fn parse_lockfile() -> (String, String) {
                 version = ver.trim_end_matches('"').to_string();
             }
             if let Some(src) = trimmed.strip_prefix("source = \"") {
-                // source = "git+https://...#commithash"
                 if let Some(hash_pos) = src.find('#') {
                     let full = src[hash_pos + 1..].trim_end_matches('"');
                     commit = full[..7.min(full.len())].to_string();
                 }
-                break; // Got everything we need
+                break;
             }
         }
     }

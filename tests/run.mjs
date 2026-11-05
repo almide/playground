@@ -1,19 +1,4 @@
 #!/usr/bin/env node
-// Almide Playground — Behavioral Test Runner
-//
-// The playground compiles user code to WASM in the browser via the SAME v1
-// trust-spine entry the CLI uses (`almide_mir::pipeline::try_render_wasm_source`,
-// see crate/src/lib.rs) and executes it under a stock WASI preview1 shim.
-// So the drift check is exactly the compiler's own cross-target promise:
-// each fixture must produce byte-identical stdout on the native target and
-// on `--target wasm` (compiled + executed through the CLI's wasmtime path).
-//
-// The old JS-runtime patching harness died with the TS backend (2026-03-28);
-// there is nothing to patch anymore — WASI is WASI.
-//
-// Usage:
-//   node tests/run.mjs              # Run all fixtures
-//   node tests/run.mjs --fixture X  # Run single fixture (name without .almd)
 
 import { execFileSync } from "node:child_process";
 import { readdirSync } from "node:fs";
@@ -26,12 +11,6 @@ const ALMIDE_BIN =
   process.env.ALMIDE_BIN || join(homedir(), ".local/almide/almide");
 const FIXTURES_DIR = resolve(__dirname, "fixtures");
 
-// Fixtures that currently hit an honest v1 wall on the wasm target.
-// This list is a RATCHET: an entry here must STILL wall (so the harness
-// fails loudly when the compiler brick lands and the entry must be removed),
-// and any fixture NOT listed here must pass on both targets.
-//
-// (Empty since C-160: pure-Almide bundled modules — path, args — link on wasm.)
 const KNOWN_WASM_WALLS = new Set([]);
 
 function run(args, cwd, extraEnv = {}) {
@@ -40,13 +19,8 @@ function run(args, cwd, extraEnv = {}) {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 120_000,
-      // A 300x400 PPM example prints 1.2 MB; the 1 MB default made fern fail
-      // as "[native]" with its own stdout as the error text.
       maxBuffer: 64 * 1024 * 1024,
       cwd,
-      // The wasm leg derives the guest cwd from $PWD, not getcwd() — with a
-      // stale PWD (execFileSync keeps the parent's), relative fs reads fail
-      // with ENOENT on wasm only. Keep both in sync.
       env: { ...process.env, ...(cwd ? { PWD: cwd } : {}), ...extraEnv },
     });
     return { ok: true, stdout: stdout.trimEnd() };
@@ -69,8 +43,6 @@ const fixtures = readdirSync(FIXTURES_DIR)
   .filter((f) => !only || f === `${only}.almd` || f === only)
   .sort();
 
-// `--fixture` may name an example id instead of a fixture — the empty-match
-// error is deferred until the example section below has had its chance.
 if (fixtures.length === 0 && !only) {
   console.error("no fixtures matched");
   process.exit(1);
@@ -124,16 +96,6 @@ console.log(
   `\n${fixtures.length - failures}/${fixtures.length} fixtures passed`,
 );
 
-// --- Example gallery (web/examples) ---
-//
-// Gallery samples are the storefront: every one must run and stay
-// byte-identical across targets. There is NO wall ratchet here — a walled
-// example is a broken example and fails the harness.
-//
-// Each example is materialized the way a local user would run it:
-// almide.toml + src/<*.almd> (so `import self.<tab>` resolves) with data
-// files at the project root (the runtime cwd, where fs.read_text looks).
-
 import { readFileSync, writeFileSync, mkdirSync, rmSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 
@@ -146,9 +108,6 @@ const examples = manifest.categories
   .filter((ex) => !only || only === ex.id);
 
 let exampleFailures = 0;
-// realpath: macOS tmpdir is a symlink (/var/folders → /private/var), and the
-// wasm leg's preopen/cwd mapping resolves real paths — a symlinked cwd makes
-// relative fs.read_text fail with ENOENT on wasm only.
 const scratchRoot = join(
   realpathSync(tmpdir()),
   `almide-playground-examples-${process.pid}`,
@@ -167,9 +126,6 @@ for (const ex of examples) {
     writeFileSync(dest, content);
   }
 
-  // An example that draws on `random` prints a different picture every run,
-  // so its two legs are compared on exit status only; every other example
-  // must be byte-identical across targets, like the fixtures above.
   const isRandom = ex.files.some(
     (name) =>
       name.endsWith(".almd") &&
@@ -198,12 +154,6 @@ for (const ex of examples) {
     exampleFailures++;
     continue;
   }
-  // The playground itself compiles through the incumbent renderer alone
-  // (crate/src/lib.rs calls almide_mir::pipeline::try_render_wasm_source;
-  // almide#2554), while the CLI's `--target wasm` tries the structural leg
-  // first. Until the playground uses the routed entry, an example must ALSO
-  // pass on the incumbent leg, or it walls in the browser while every other
-  // check here is green.
   const incumbent = run(["run", "src/main.almd", "--target", "wasm"], root, {
     ALMIDE_WASM_INCUMBENT: "1",
   });

@@ -15,12 +15,7 @@ use almide::lower;
 use almide::mono;
 use almide::parser;
 
-/// Tab set sent by the frontend: file name → source text. `.almd` tabs are
-/// candidate modules for `import self.<name>`; anything else (data files the
-/// runner preopens into the WASI FS) is ignored here.
 type Files = BTreeMap<String, String>;
-/// Same shape `almide::wasm_route::ModuleSource::Provided` and
-/// `canonicalize_program` take: (module name, parsed program, is_self).
 type SelfModules = Vec<(String, ast::Program, bool)>;
 
 fn parse_files_json(files_json: &str) -> Result<Files, String> {
@@ -33,9 +28,6 @@ fn entry_source<'a>(files: &'a Files, entry: &str) -> Result<&'a String, String>
         .ok_or_else(|| format!("entry file '{entry}' not found"))
 }
 
-/// Parse one tab. The parser recovers (it can return `Ok` with a truncated
-/// program while recording failures in `.errors`), so both channels are
-/// checked — same gate as the CLI's `parse_file` and the v1 pipeline.
 fn parse_strict(source: &str, label: &str) -> Result<ast::Program, String> {
     let tokens = lexer::Lexer::tokenize(source);
     let mut parser = parser::Parser::new(tokens);
@@ -49,10 +41,6 @@ fn parse_strict(source: &str, label: &str) -> Result<ast::Program, String> {
     Ok(program)
 }
 
-/// In-memory `import self.<name>` resolution over the tab set — the browser
-/// counterpart of `resolve.rs`'s `resolve_self_import` (which reads
-/// `src/<name>.almd` off disk). Same naming rule (module name = last path
-/// segment), same dependency order (leaves first), cycle-checked.
 fn resolve_self_modules(files: &Files, entry_prog: &ast::Program) -> Result<SelfModules, String> {
     let mut out: SelfModules = Vec::new();
     let mut loaded: HashSet<String> = HashSet::new();
@@ -103,30 +91,12 @@ fn collect_self_imports(
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// WASM target (Run)
-// ---------------------------------------------------------------------------
-
-/// The module list every compile entry needs: the bundled stdlib modules whose
-/// definitions live in `.almd` source (the sized numeric types, `error`,
-/// `datetime`, `value`, …) followed by the user's own tabs.
-///
-/// The CLI gets these from `resolve`, which loads `AUTO_IMPORT_BUNDLED` plus
-/// whatever the program imports. Passing only the user tabs — as this crate did
-/// before — leaves those modules undefined: `x.to_string()` on an `Int8`
-/// reports "undefined method" in the playground while the very same program
-/// compiles natively.
 fn modules_for(source: &str, self_modules: SelfModules) -> SelfModules {
     let mut modules = almide_mir::pipeline::bundled_self_modules(source);
     modules.extend(self_modules);
     modules
 }
 
-/// Render through the structural wasm route — the SAME route the native CLI's
-/// `--target wasm` takes, in its library form for a consumer with no
-/// filesystem (the tabs are the project) — and hand back the stock WASI
-/// preview-1 module the worker's p1 shim loads. A wall is an `Err`, never a
-/// fabricated module.
 fn render_to_wasi(source: &str, modules: &SelfModules) -> Result<Vec<u8>, String> {
     let routed = almide::wasm_route::render_wasm_routed(
         "main.almd",
@@ -138,8 +108,6 @@ fn render_to_wasi(source: &str, modules: &SelfModules) -> Result<Vec<u8>, String
     routed.stock_wasi()
 }
 
-/// Compile a tab set to a WASI module. Sibling modules ride in via
-/// `self_modules`, exactly like `compile_to_wasm_bytes` in the CLI.
 #[wasm_bindgen]
 pub fn compile_project_to_wasm(files_json: &str, entry: &str) -> Result<Vec<u8>, String> {
     let files = parse_files_json(files_json)?;
@@ -150,23 +118,14 @@ pub fn compile_project_to_wasm(files_json: &str, entry: &str) -> Result<Vec<u8>,
     render_to_wasi(source, &modules)
 }
 
-/// Single-file compatibility wrapper (crate tests, older callers).
 #[wasm_bindgen]
 pub fn compile_to_wasm(source: &str) -> Result<Vec<u8>, String> {
     let entry_prog = parse_strict(source, "main.almd")?;
-    let _ = entry_prog; // parse gate only; the renderer re-parses internally
+    let _ = entry_prog;
     let modules = modules_for(source, Vec::new());
     render_to_wasi(source, &modules)
 }
 
-// ---------------------------------------------------------------------------
-// Rust target (Compiled tab)
-// ---------------------------------------------------------------------------
-
-/// Emit Rust source for a tab set — mirrors the CLI's `cmd_emit` driver
-/// (`src/cli/emit.rs`): canonicalize with siblings → refresh module top-lets
-/// → infer entry → lower → per-module infer + import-table swap + lower_module
-/// → monomorphize → ir_link → codegen.
 #[wasm_bindgen]
 pub fn compile_project_to_rust(files_json: &str, entry: &str) -> Result<String, String> {
     let files = parse_files_json(files_json)?;
@@ -211,8 +170,6 @@ pub fn compile_project_to_rust(files_json: &str, entry: &str) -> Result<String, 
             .map(|d| d.display())
             .collect();
         if !module_errors.is_empty() {
-            // A bundled stdlib module is CI-gated upstream; a diagnostic there
-            // is a compiler bug, not something the user can act on.
             if !almide::stdlib_info::is_bundled_module(name) {
                 return Err(format!("in {name}.almd:\n{}", module_errors.join("\n\n")));
             }
@@ -238,16 +195,11 @@ pub fn compile_project_to_rust(files_json: &str, entry: &str) -> Result<String, 
     }
 }
 
-/// Single-file compatibility wrapper.
 #[wasm_bindgen]
 pub fn compile_to_rust(source: &str) -> Result<String, String> {
     let files_json = serde_json::json!({ "main.almd": source }).to_string();
     compile_project_to_rust(&files_json, "main.almd")
 }
-
-// ---------------------------------------------------------------------------
-// Check (editor diagnostics)
-// ---------------------------------------------------------------------------
 
 fn diag_to_json(d: &Diagnostic, default_file: &str) -> serde_json::Value {
     serde_json::json!({
@@ -265,8 +217,6 @@ fn diag_to_json(d: &Diagnostic, default_file: &str) -> serde_json::Value {
     })
 }
 
-/// One diagnostic with no source position — carries resolver/parse-level
-/// failures into the same JSON channel the editor consumes.
 fn plain_error_json(file: &str, message: String) -> serde_json::Value {
     serde_json::json!({
         "file": file,
@@ -277,9 +227,6 @@ fn plain_error_json(file: &str, message: String) -> serde_json::Value {
     })
 }
 
-/// Type-check a tab set WITHOUT running codegen — fast enough for
-/// check-on-idle in the editor. Never throws: the result is always a JSON
-/// array of diagnostics (empty = clean), each attributed to its tab.
 #[wasm_bindgen]
 pub fn check_project(files_json: &str, entry: &str) -> String {
     let mut out: Vec<serde_json::Value> = Vec::new();
@@ -296,8 +243,6 @@ fn check_project_inner(files_json: &str, entry: &str, out: &mut Vec<serde_json::
         return out.push(plain_error_json(entry, format!("entry file '{entry}' not found")));
     };
 
-    // Parse every .almd tab first so a broken sibling reports against its own
-    // tab (not as an opaque resolver failure on the entry).
     let mut parsed_ok = true;
     for (name, text) in &files {
         if !name.ends_with(".almd") {
@@ -351,9 +296,6 @@ fn check_project_inner(files_json: &str, entry: &str, out: &mut Vec<serde_json::
         out.push(diag_to_json(d, entry));
     }
 
-    // Only the user's own tabs get an attributed pass — same before/after slice
-    // technique as the CLI's `infer_module_capturing`. Bundled stdlib modules
-    // are CI-gated upstream and have no user file to blame.
     for (name, mod_prog, _) in &self_modules {
         let file_name = format!("{name}.almd");
         if !files.contains_key(&file_name) {
@@ -370,10 +312,6 @@ fn check_project_inner(files_json: &str, entry: &str, out: &mut Vec<serde_json::
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// AST view / version
-// ---------------------------------------------------------------------------
 
 #[wasm_bindgen]
 pub fn parse_to_ast(source: &str) -> Result<String, String> {
@@ -402,9 +340,6 @@ mod tests {
 
     #[test]
     fn test_compile_to_wasm() {
-        // v1's wasm subset requires an explicit `fn main`; bare top-level
-        // statements were never valid Almide grammar (verified against the
-        // native CLI), and `List[Int].join` needs an explicit to_string map.
         let source = r#"
 fn main() -> Unit = {
   let xs = [3, 1, 4, 1, 5]
@@ -415,7 +350,6 @@ fn main() -> Unit = {
 }
 "#;
         let wasm = compile_to_wasm(source).unwrap();
-        // WASM magic number: \0asm
         assert!(wasm.len() > 8, "WASM output should be non-trivial");
         assert_eq!(&wasm[0..4], b"\0asm", "should start with WASM magic");
     }
@@ -459,8 +393,6 @@ fn main() -> Unit = {
 
     #[test]
     fn test_multi_file_wasm() {
-        // Verified against the native CLI: `almide run src/main.almd` and
-        // `--target wasm` both print "Hello, Almide!" for this project shape.
         let json = files_json(&[
             (
                 "main.almd",
@@ -517,11 +449,6 @@ fn main() -> Unit = {
         assert!(first["line"].is_number(), "diagnostic should carry a line: {first}");
     }
 
-    /// Bundled stdlib modules (the sized numeric types, `datetime`, `value`, …)
-    /// are defined in `.almd` source and must be handed to the compiler, or the
-    /// playground rejects programs that build fine natively. This locks the fix
-    /// for that gap: `x.to_string()` on a sized value is a method that only
-    /// exists in `stdlib/uint8.almd`.
     #[test]
     fn test_bundled_stdlib_modules_are_linked() {
         let source = "fn main() -> Unit = {\n  let b: UInt8 = 255\n  println(b.to_string())\n  println(datetime.to_iso(0))\n}\n";

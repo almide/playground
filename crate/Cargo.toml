@@ -10,24 +10,9 @@ crate-type = ["cdylib", "rlib"]
 wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# `default-features = false` drops almide's `embedded-host` feature (the
-# wasmtime-backed `almide.*` host behind `almide run --target wasm`). wasmtime —
-# and through it ring/getrandom — cannot be built for wasm32-unknown-unknown;
-# the deploy was red from 2026-08-30 until the host became optional upstream.
-# The library surface this crate uses is identical either way.
 almide = { git = "https://github.com/almide/almide.git", branch = "main", default-features = false }
-# Only for `pipeline::bundled_self_modules` (the pre-parsed bundled imports a
-# single entry needs when no filesystem resolver runs); the wasm itself renders
-# through `almide::wasm_route`, the route the native CLI's `--target wasm` and
-# almide's browser-ABI determinism harness (tools/wasmgen-harness-uu) take.
-# almide keeps almide-mir as a normal path dep of its own workspace, so pulling
-# the SAME git rev here keeps the two in lockstep.
 almide-mir = { git = "https://github.com/almide/almide.git", branch = "main" }
 
-# Size-first release profile: the wasm ships to every first-time visitor
-# (10MB → the dominant cost of the playground's initial load). `z` + fat LTO
-# + single codegen unit trades compile-farm minutes and some runtime speed
-# for download size; in-browser compile latency stays well under a second.
 [profile.release]
 opt-level = "z"
 lto = true
@@ -36,6 +21,4 @@ panic = "abort"
 strip = true
 
 [package.metadata.wasm-pack.profile.release]
-# Overriding wasm-opt args drops wasm-pack's defaults, so the feature flags
-# rustc-emitted wasm needs (bulk memory etc.) must be re-enabled explicitly.
 wasm-opt = ["-Oz", "--enable-bulk-memory", "--enable-sign-ext", "--enable-mutable-globals", "--enable-nontrapping-float-to-int"]

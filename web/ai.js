@@ -1,17 +1,5 @@
-// BYOK AI generation + auto-repair loop (Anthropic / OpenAI / Gemini, SSE
-// streaming straight into the editor). Ported unchanged in behavior from the
-// pre-revamp playground; the only structural change is that compilation now
-// happens through the Worker runner (ctx.compileAndRun) and the editor is
-// CodeMirror (ctx.setActiveCode / ctx.appendActiveCode).
-//
-// The AI operates on the ACTIVE tab: generated / repaired code replaces the
-// active tab's content, and every compile uses the full tab set.
-
 export const MODELS = {
   anthropic: [
-    // `extra` is merged into the request body: effort keeps Opus/Sonnet 5's
-    // adaptive thinking shallow so the first token lands fast. Haiku 4.5 has
-    // no effort knob and rejects the field, so it carries no extra.
     { value: 'claude-opus-5', label: 'Claude Opus 5', extra: { output_config: { effort: 'low' } } },
     { value: 'claude-sonnet-5', label: 'Claude Sonnet 5', extra: { output_config: { effort: 'low' } } },
     { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
@@ -185,8 +173,6 @@ function stripCodeFences(text) {
   return text.replace(/^```[\w]*\n?/, '').replace(/\n?```\s*$/, '').trim();
 }
 
-// --- Provider-specific streaming ---
-
 async function streamAnthropic(apiKey, model, messages, signal, onText) {
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -273,14 +259,12 @@ async function readSSE(resp, onEvent) {
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6);
       if (data === '[DONE]') continue;
-      try { onEvent(JSON.parse(data)); } catch (e) { /* skip */ }
+      try { onEvent(JSON.parse(data)); } catch (e) {}
     }
   }
 }
 
 const STREAMS = { anthropic: streamAnthropic, openai: streamOpenAI, gemini: streamGemini };
-
-// --- Inline diff for the repair log ---
 
 function simpleDiff(before, after) {
   const a = before.split('\n'), b = after.split('\n');
@@ -325,12 +309,6 @@ const MAX_REPAIR_ATTEMPTS = 3;
 const REPAIR_INSTRUCTION =
   '\n\nFix the code and output ONLY the corrected .almd source. No explanations.';
 
-/**
- * Wire the AI bar. `ctx` is the app-side surface:
- *   getActiveCode(), setActiveCode(text), appendActiveCode(text),
- *   compileAndRun(code) → Promise<{ok, output, error, phase}>,
- *   setStatus(text), renderRepairLog(entries), setStreaming(bool)
- */
 export function initAI(ctx) {
   const els = {
     provider: document.getElementById('ai-provider'),
@@ -349,8 +327,6 @@ export function initAI(ctx) {
       opt.textContent = m.label;
       els.model.appendChild(opt);
     }
-    // A model id saved before MODELS changed no longer exists as an <option>;
-    // assigning it would blank the select and send an empty model to the API.
     const savedModel = localStorage.getItem('almide-ai-model-' + provider);
     if (savedModel && MODELS[provider].some((m) => m.value === savedModel)) {
       els.model.value = savedModel;
@@ -402,11 +378,6 @@ export function initAI(ctx) {
     return cleaned;
   }
 
-  /**
-   * Shared repair loop: compile-check `code`, stream fixes until it runs or
-   * attempts are exhausted. `messages` must already contain the conversation
-   * up to (and including) the assistant turn that produced `code`.
-   */
   async function repairLoop(streamFn, apiKey, model, messages, code, result, repairLog, signal) {
     let totalFixes = 0;
     let prevCode = code;
@@ -500,7 +471,6 @@ export function initAI(ctx) {
     }
   }
 
-  /** "Fix with AI" from a failed manual Run. */
   async function repairFromRun(originalCode, initialResult) {
     if (!hasKey() || abortController) return;
     const provider = els.provider.value;

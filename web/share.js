@@ -1,7 +1,3 @@
-// Share links without a server: the whole tab set rides in the URL hash as
-// deflate-raw + base64url (CompressionStream is baseline in every modern
-// browser — no dependency). Payload: { v: 1, files: [{ name, content }] }.
-
 function toBase64Url(buf) {
   const bytes = new Uint8Array(buf);
   let bin = '';
@@ -26,14 +22,12 @@ async function pipe(bytes, stream) {
   return new Response(out).arrayBuffer();
 }
 
-/** files: [{ name, content }] → hash value (without the '#code=' prefix). */
 export async function encodeShare(files) {
   const payload = new TextEncoder().encode(JSON.stringify({ v: 1, files }));
   const compressed = await pipe(payload, new CompressionStream('deflate-raw'));
   return toBase64Url(compressed);
 }
 
-/** hash value → [{ name, content }] (throws on a malformed link). */
 export async function decodeShare(encoded) {
   const compressed = fromBase64Url(encoded);
   const raw = await pipe(compressed, new DecompressionStream('deflate-raw'));

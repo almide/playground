@@ -43,9 +43,6 @@
 </script>
 <style>
 :root {
-  /* Brand palette (ALMIDE Brand Guideline v2): the grounds are the navy of the dark
-     GitHub cover, the accents the shell's teal layers — Shell 01 #14A2A2 through
-     Shell 05 #096578 — and the chrome the ALMIDE Navy #1F3A5F. */
   --bg-deep: #0b1420;
   --bg-surface: #101b29;
   --bg-elevated: #152233;
@@ -59,9 +56,6 @@
   --accent-light: #14a2a2;
   --accent-strong: #096578;
   --accent-glow: rgba(20, 162, 162, 0.2);
-  /* On a navy ground a control lifts toward Shell 01 under the pointer and sinks to
-     Shell 05 when pressed — darkening on hover reads as no change, the button just
-     loses contrast with the page. */
   --accent-hover: var(--accent-light);
   --accent-press: var(--accent-strong);
   --navy: #1f3a5f;
@@ -93,7 +87,6 @@ header h1 {
   font-size: 17px; font-weight: 600; color: #2b2b2b;
   letter-spacing: 0.04em;
 }
-/* Shown as delivered: the brand guideline forbids recolouring the shell. */
 header .mark {
   width: 28px; height: 28px;
   display: block;
@@ -121,9 +114,7 @@ button:hover {
   border-color: #3c6391;
 }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
-/* A click is shorter than the 0.2s ease, so the press state would never fully show. */
 button:active { transform: scale(0.98); transition-duration: 0.05s; }
-/* Only the unclassed navy buttons; classed ones (tabs, menu items) own their grounds. */
 button:not([class]):active { background: var(--navy-press); }
 button.primary, button.fix-btn {
   background: var(--accent);
@@ -140,7 +131,6 @@ button.primary:active:not(:disabled), button.fix-btn:active:not(:disabled) {
   border-color: var(--accent);
   box-shadow: none;
 }
-/* Stop keeps its red through hover and press instead of falling back to teal. */
 button.primary.running { background: var(--error); border-color: var(--error); }
 button.primary.running:hover:not(:disabled) {
   background: var(--error-hover);
@@ -189,7 +179,6 @@ button.ai:active:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
-/* Examples dropdown */
 .examples-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -257,7 +246,6 @@ button.ai:active:not(:disabled) {
 }
 .panel-header .tab:hover:not(.active) { color: var(--text-secondary); }
 
-/* File tabs (left panel) */
 #file-tabs { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
 .file-tab {
   display: inline-flex; align-items: center; gap: 6px;
@@ -346,15 +334,12 @@ button.ai:active:not(:disabled) {
   font-family: var(--sans); font-size: 13px; font-weight: 500;
 }
 
-/* Visual tab */
 #visual { display: flex; align-items: center; justify-content: center; }
 #visual img, #visual canvas {
   max-width: 100%;
   max-height: 100%;
   border-radius: 6px;
 }
-/* HTML output: the iframe is its own document, so it needs an explicit box.
-   White ground — an HTML page assumes a page, not the editor's dark surface. */
 #visual iframe {
   width: 100%;
   height: 100%;
@@ -365,7 +350,6 @@ button.ai:active:not(:disabled) {
 #visual canvas.pixelated { image-rendering: pixelated; width: min(100%, 640px); height: auto; }
 .visual-hint { color: var(--text-muted); font-size: 12px; max-width: 40ch; text-align: center; }
 
-/* Embed mode (?embed=1) — minimal chrome for iframes */
 .embed-bar {
   display: flex; align-items: center; gap: 12px;
   padding: 6px 12px;
@@ -383,14 +367,8 @@ button.ai:active:not(:disabled) {
 }
 .embed-bar a:hover { color: var(--accent-light); }
 .embed-bar button { padding: 4px 14px; font-size: 11px; }
-/* No AI in an embed, so no API-key notice; Run turning into Stop is the status. */
 body.embed header, body.embed .ai-bar, body.embed .mobile-bar, body.embed .status { display: none; }
 body.embed .panel-header { min-height: 30px; padding: 3px 10px; }
-/* An embed is a notebook cell in someone else's page: the code at its own
-   height, and — once run — the output under it at its own height, both
-   capped and scrolling past the cap. Nothing flips out of sight, nothing
-   reserves room for what is not there yet, at any width. The page learns
-   the cell's height from a message (see app.js) and sizes the frame to it. */
 body.embed { height: auto; }
 body.embed .panels { flex: none; flex-direction: column; overflow: visible; }
 body.embed .panel { flex: none; min-height: 0; }
@@ -433,7 +411,6 @@ body.embed .output-area { flex: none; max-height: 320px; padding: 14px 20px; }
 
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
-/* Repair log */
 .repair-log { font-family: var(--mono); font-size: 12px; line-height: 1.5; }
 .repair-log .log-step {
   margin-bottom: 10px; padding: 10px 14px;
@@ -460,23 +437,16 @@ body.embed .output-area { flex: none; max-height: 320px; padding: 14px 20px; }
 .repair-log .diff-del { color: var(--error-text); text-decoration: line-through; opacity: 0.7; }
 .repair-log .diff-ctx { color: var(--text-muted); }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-subtle); }
 
-/* --- Responsive --- */
-
-/* Phone-only chrome, inert on desktop. */
 .mobile-bar { display: none; }
 .ai-backdrop { display: none; }
 .ai-sheet-head { display: none; }
 
 @media (max-width: 768px) {
-  /* App-like: one screen, no page scroll, panes scroll internally.
-     dvh (not vh) so the collapsing iOS Safari URL bar doesn't hide the
-     bottom action bar behind the browser chrome. */
   body { height: 100dvh; }
 
   header {
@@ -485,30 +455,19 @@ body.embed .output-area { flex: none; max-height: 320px; padding: 14px 20px; }
   }
   header h1 { font-size: 15px; }
   header .subtitle { display: none; }
-  /* Zip export is a desktop errand, and Share's only feedback lives in
-     the status bar, which is hidden here — the narrow header keeps
-     Examples and the GitHub link. */
   #export-btn { display: none; }
   #share-btn { display: none; }
-  /* Breathing room between the icon and the Examples button. */
   header .gh-link { margin-right: 8px; }
   .actions { gap: 6px; }
   .actions button { padding: 8px 12px; font-size: 12px; }
-  /* Run lives in the thumb-reach bottom bar instead. */
   #run-btn { display: none; }
 
-  /* One pane at a time, full height — a 50/50 stack left both the code
-     and the result too cramped to read. The bottom bar flips views, and
-     Run flips to Output automatically. */
   .panels {
     flex-direction: column;
     flex: 1;
     min-height: 0;
   }
   .panel + .panel { border-left: none; }
-  /* In the column stack the flex minimum would otherwise be the CONTENT
-     height: the pane grows past the viewport, the editor never gets a
-     bounded height, and its internal scroller has nothing to scroll. */
   .panel { min-height: 0; }
   .panel:last-child { display: none; }
   body.view-output .panel:first-child { display: none; }
@@ -516,7 +475,6 @@ body.embed .output-area { flex: none; max-height: 320px; padding: 14px 20px; }
 
   .output-area { padding: 12px; }
 
-  /* The AI bar becomes a bottom-sheet dialog, opened from the ✨ button. */
   .ai-bar { display: none; }
   body.ai-open .ai-backdrop {
     display: block;
@@ -594,7 +552,6 @@ body.embed .output-area { flex: none; max-height: 320px; padding: 14px 20px; }
     font-size: 15px;
   }
   .mobile-bar .mobile-run.running { background: var(--error); border-color: var(--error); }
-  /* Touch has no hover, so the press is the only feedback a tap gets. */
   .mobile-bar button:active { background: var(--bg-subtle); }
   .mobile-bar .mobile-run:active { background: var(--accent-press); border-color: var(--accent-press); }
   .mobile-bar .mobile-run.running:active { background: var(--error-press); border-color: var(--error-press); }
@@ -605,10 +562,6 @@ body.embed .output-area { flex: none; max-height: 320px; padding: 14px 20px; }
 
 }
 
-/* iOS Safari zooms the page when an editable element under 16px takes focus.
-   That is a TOUCH problem, not a narrow-viewport one — keying it off width
-   alone also enlarged the text inside embedded iframes on desktop, which are
-   routinely narrower than 768px. */
 @media (pointer: coarse) {
   #editor-host .cm-editor { font-size: 16px; }
   #editor-host .cm-gutters { font-size: 14px; }
@@ -616,7 +569,6 @@ body.embed .output-area { flex: none; max-height: 320px; padding: 14px 20px; }
   .ai-bar select,
   .ai-bar input[type="password"],
   .ai-bar input[type="text"] { font-size: 16px; }
-  /* Fingers need bigger targets than cursors. */
   .panel-header .tab { padding: 8px 12px; }
   #file-tabs .file-tab { padding: 8px 12px; }
   .examples-menu button { padding: 12px 16px; }

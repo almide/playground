@@ -1,22 +1,7 @@
-// Visual タブのレンダラ(SVG / PPM / HTML)を、コンパイラ抜きで検証する。
-//
-//   node test/visual.mjs                              # ローカルの web/ を検証
-//   node test/visual.mjs https://almide.github.io/playground/   # 本番を検証
-//
-// wasm コンパイラは CI ビルドなのでチェックアウトには無い。プログラムを走らせずに
-// stdout だけ渡せるよう `__almidePlayground.renderVisual` を叩いている。
-//
-// HTML 出力の安全性(9発目のあとで追加):
-//   共有されたコードが Visual タブで描かれる以上、SVG と同じ強さが要る。
-//   SVG は <img> 経由なので secure static mode に入り、スクリプトも外部取得も
-//   一切できない。iframe は素のままだとそれより弱いので、
-//   sandbox="" (スクリプト無効・別生成元) と CSP (外部取得を全部拒否) で揃える。
-
 import { spawn } from "node:child_process";
 import { launch } from "./cdp.mjs";
 
 const PORT = 8732;
-// 引数で URL を渡せば本番をそのまま検証できる(その場合ローカルサーバは立てない)
 const BASE = process.argv[2] || `http://127.0.0.1:${PORT}/`;
 const server = process.argv[2]
   ? null
@@ -80,7 +65,6 @@ check(
   "CSP を head の中に差し込む(doctype の前ではない)",
 );
 
-// 実際に描画されて、外部を取りに行かないこと
 await render(DOC);
 await new Promise((r) => setTimeout(r, 600));
 check(

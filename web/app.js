@@ -1,15 +1,9 @@
-// Playground controller: file tabs, worker-backed run, check-on-idle
-// diagnostics, URL-hash sharing, example gallery, AI bar.
-
 import { createEditor } from './editor.js';
 import { Runner } from './runner.js';
 import { encodeShare, decodeShare } from './share.js';
 import { initAI } from './ai.js';
 import { buildZip } from './zip.js';
 
-// Embed mode (?embed=1): minimal chrome for iframes. ?hide=a.almd,b.almd
-// hides tabs from the strip while still compiling them (Kotlin-style
-// hidden setup code).
 const BOOT_PARAMS = new URLSearchParams(location.search);
 const EMBED = BOOT_PARAMS.get('embed') === '1';
 const HIDDEN_TABS = new Set((BOOT_PARAMS.get('hide') || '').split(',').filter(Boolean));
@@ -87,8 +81,6 @@ It's **compact** and **expressive**.
     |> println
 }`;
 
-// --- State ---
-
 let files = [{ name: ENTRY, content: DEFAULT_MAIN }];
 let active = 0;
 let running = false;
@@ -105,8 +97,6 @@ const statusEl = $('status-text');
 function setStatus(text) {
   statusEl.textContent = text;
 }
-
-// --- Editor ---
 
 const editor = createEditor($('editor-host'), {
   onChange() {
@@ -131,8 +121,6 @@ function filesPayload() {
   for (const f of files) map[f.name] = f.content;
   return map;
 }
-
-// --- File tabs ---
 
 const tabsEl = $('file-tabs');
 
@@ -270,8 +258,6 @@ function setFiles(newFiles, { activeName = ENTRY } = {}) {
   scheduleSave();
 }
 
-// --- Diagnostics (check-on-idle) ---
-
 function scheduleCheck() {
   clearTimeout(checkTimer);
   checkTimer = setTimeout(runCheck, CHECK_DEBOUNCE_MS);
@@ -282,7 +268,7 @@ async function runCheck() {
   const generation = ++checkGeneration;
   try {
     const res = await runner.check(filesPayload(), ENTRY);
-    if (generation !== checkGeneration) return; // a newer check superseded us
+    if (generation !== checkGeneration) return;
     diagnosticsByFile = new Map();
     for (const d of res.diagnostics) {
       if (!diagnosticsByFile.has(d.file)) diagnosticsByFile.set(d.file, []);
@@ -291,7 +277,6 @@ async function runCheck() {
     applyStoredDiagnostics();
     renderTabs();
   } catch (e) {
-    // check is best-effort; a cancelled worker mid-check is fine
   }
 }
 
@@ -299,16 +284,14 @@ function applyStoredDiagnostics() {
   editor.applyDiagnostics(diagnosticsByFile.get(files[active].name) || []);
 }
 
-// --- Persistence ---
-
 function scheduleSave() {
-  if (EMBED) return; // an embedded snippet must not clobber the user's playground state
+  if (EMBED) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     syncActive();
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ files, active }));
-    } catch (e) { /* storage full/blocked — non-fatal */ }
+    } catch (e) {}
   }, 800);
 }
 
@@ -324,8 +307,6 @@ function restoreFromStorage() {
     return false;
   }
 }
-
-// --- Output pane ---
 
 const outputEl = $('output');
 let outputLineCount = 0;
@@ -403,13 +384,10 @@ function renderRepairLog(entries) {
   showTab('output');
 }
 
-// --- Visual tab (SVG / PPM rendered from stdout) ---
-
 const visualEl = $('visual');
 const VISUAL_HINT_HTML = visualEl.innerHTML;
 
 function parsePPM(text) {
-  // P3 (ASCII) only; '#' comments stripped per spec.
   const tokens = text
     .split('\n')
     .map((l) => l.replace(/#.*$/, ''))
@@ -437,9 +415,6 @@ function parsePPM(text) {
   return img;
 }
 
-// A <meta> CSP only applies when it sits inside <head>, ahead of anything it must
-// govern — so splice it in rather than prepending, and never in front of the
-// doctype (that would drop the document into quirks mode).
 const VISUAL_CSP =
   '<meta http-equiv="Content-Security-Policy" ' +
   'content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src data:">';
@@ -454,7 +429,6 @@ function withVisualCsp(html) {
 
 let visualBlobUrl = null;
 
-/** Returns true when stdout rendered as an image (and fills the Visual tab). */
 function renderVisual(stdout) {
   const text = stdout.trim();
   visualEl.innerHTML = VISUAL_HINT_HTML;
@@ -463,7 +437,6 @@ function renderVisual(stdout) {
     visualBlobUrl = null;
   }
   if (text.startsWith('<svg') || (text.startsWith('<?xml') && text.includes('<svg'))) {
-    // Blob-URL <img> renders SVG with scripts disabled — safe for shared code.
     const img = document.createElement('img');
     img.alt = 'SVG output';
     visualBlobUrl = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' }));
@@ -473,11 +446,6 @@ function renderVisual(stdout) {
     return true;
   }
   if (/^<!doctype html/i.test(text) || /^<html[\s>]/i.test(text)) {
-    // Sandboxed iframe, no tokens: no scripts, no forms, no top-level navigation,
-    // opaque origin. The injected CSP also blocks every network fetch, so a shared
-    // program cannot phone home through an <img src> — this matches the SVG path,
-    // where an <img>-rendered SVG is in secure static mode and cannot reach the
-    // network at all. Without it the iframe would be the weaker of the two.
     const frame = document.createElement('iframe');
     frame.setAttribute('sandbox', '');
     frame.title = 'HTML output';
@@ -501,11 +469,9 @@ function renderVisual(stdout) {
   return false;
 }
 
-// --- Right pane tabs ---
-
 function showTab(name) {
   for (const t of ['output', 'visual', 'compiled', 'ast']) {
-    $(t).style.display = t === name ? '' : 'none'; // '' → stylesheet display (block / flex for #visual)
+    $(t).style.display = t === name ? '' : 'none';
     $('tab-' + t).className = t === name ? 'tab active' : 'tab';
   }
   if (name === 'compiled') refreshCompiled();
@@ -550,8 +516,6 @@ async function refreshAst() {
   }
 }
 
-// --- Run ---
-
 const runBtn = $('run-btn');
 const embedRunBtn = $('embed-run-btn');
 const mobileRunBtn = $('mobile-run-btn');
@@ -564,13 +528,10 @@ function setRunning(state) {
   }
 }
 
-// --- Mobile chrome: single-pane view flip + AI bottom sheet ---
-
 const MOBILE = window.matchMedia('(max-width: 768px)');
 
 function setMobileView(output) {
   document.body.classList.toggle('view-output', output);
-  // The flip button always names the pane it would take you to.
   $('mobile-view-btn').textContent = output ? 'Code' : 'Output';
 }
 
@@ -585,7 +546,6 @@ async function runCode() {
   setRunning(true);
   clearOutput();
   showTab('output');
-  // An embed shows the output under the code instead of flipping to it.
   if (EMBED) document.body.classList.add('ran');
   else if (MOBILE.matches) setMobileView(true);
   setStatus('Compiling…');
@@ -612,7 +572,6 @@ async function runCode() {
     } else {
       const phase = res.phase === 'runtime' ? 'Runtime error' : 'Compile error';
       if (res.phase === 'runtime' && outputLineCount > 0) {
-        // keep streamed output, append the error below it
         appendOutputLine('— ' + phase + ': ' + res.error, 'err-line');
       } else {
         showError(res.error, res.phase, files[active].content);
@@ -631,8 +590,6 @@ async function runCode() {
   }
 }
 
-// --- Share ---
-
 async function shareCode() {
   syncActive();
   try {
@@ -646,19 +603,14 @@ async function shareCode() {
       await navigator.clipboard.writeText(url.toString());
       setStatus('Share URL copied to clipboard (' + url.toString().length + ' chars)');
     } catch (e) {
-      // clipboard needs focus/permission; the address bar already has the URL
     }
   } catch (e) {
     setStatus('Share failed: ' + e.message);
   }
 }
 
-// --- Export (download as a runnable project) ---
-
 function exportZip() {
   syncActive();
-  // Mirror the layout `almide run src/main.almd` expects locally: .almd files
-  // under src/, data files at the project root (the runtime cwd).
   const entries = [
     { name: 'almide-playground/almide.toml', text: '[package]\nname = "playground_export"\nversion = "0.1.0"\n' },
   ];
@@ -674,17 +626,12 @@ function exportZip() {
   setStatus('Exported almide-playground.zip — unzip and `almide run src/main.almd`');
 }
 
-// --- Examples gallery ---
-
 const examplesBtn = $('examples-btn');
 const examplesMenu = $('examples-menu');
 let manifest = null;
 
 async function loadManifest() {
   try {
-    // GitHub Pages serves with max-age=600, so a plain fetch keeps a
-    // just-replaced example for up to ten minutes after a deploy. no-cache
-    // revalidates against the ETag on every load: a 304 when nothing moved.
     const resp = await fetch('./examples/manifest.json', { cache: 'no-cache' });
     manifest = await resp.json();
     buildExamplesMenu();
@@ -740,10 +687,9 @@ async function loadExample(id) {
     setFiles(loaded);
     const url = new URL(location.href);
     url.hash = '';
-    url.searchParams.set('example', id); // keep embed/hide params intact
+    url.searchParams.set('example', id);
     history.replaceState(null, '', url);
     setStatus('Loaded example: ' + ex.title);
-    // Picking an example is a request to READ it — leave the output view.
     if (MOBILE.matches) setMobileView(false);
     return true;
   } catch (e) {
@@ -764,8 +710,6 @@ examplesBtn.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   if (!examplesMenu.hidden && !examplesMenu.contains(e.target)) toggleExamplesMenu(false);
 });
-
-// --- AI ---
 
 const ai = initAI({
   getActiveCode: () => {
@@ -806,11 +750,6 @@ const ai = initAI({
   },
 });
 
-// --- GitHub star count in the header ---
-// Pure decoration: the link works without it, so every failure path just
-// leaves the badge hidden. Cached for an hour to stay far inside the
-// unauthenticated API rate limit.
-
 (async () => {
   const el = $('gh-star-count');
   const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n));
@@ -829,11 +768,8 @@ const ai = initAI({
     el.textContent = fmt(n);
     el.hidden = false;
   } catch (e) {
-    /* offline, ad-blocked, rate-limited — the badge stays hidden */
   }
 })();
-
-// --- Wire header buttons & boot ---
 
 runBtn.addEventListener('click', runCode);
 embedRunBtn.addEventListener('click', runCode);
@@ -844,16 +780,12 @@ $('tab-visual').addEventListener('click', () => showTab('visual'));
 $('tab-compiled').addEventListener('click', () => showTab('compiled'));
 $('tab-ast').addEventListener('click', () => showTab('ast'));
 
-// Mobile bottom bar. The elements exist on desktop too (display: none),
-// so the wiring is unconditional.
 mobileRunBtn.addEventListener('click', runCode);
 $('mobile-view-btn').addEventListener('click', () =>
   setMobileView(!document.body.classList.contains('view-output')));
 $('mobile-ai-btn').addEventListener('click', () => document.body.classList.add('ai-open'));
 $('ai-backdrop').addEventListener('click', () => document.body.classList.remove('ai-open'));
 $('ai-close').addEventListener('click', () => document.body.classList.remove('ai-open'));
-// Generating replaces the active tab's code — close the sheet and show
-// the editor so you watch it stream in.
 $('ai-btn').addEventListener('click', () => {
   document.body.classList.remove('ai-open');
   if (MOBILE.matches) setMobileView(false);
@@ -869,8 +801,6 @@ if (EMBED) {
     url.searchParams.delete('hide');
     window.open(url, '_blank', 'noopener');
   });
-  // Tell the embedding page how tall the cell is, whenever that changes, so
-  // it can size the frame to it (almide/docs listens for this message).
   if (window.parent !== window) {
     new ResizeObserver(() => {
       window.parent.postMessage(
@@ -885,7 +815,6 @@ async function boot() {
   renderTabs();
   loadManifest();
 
-  // Initial content: share hash > ?example= > localStorage > default.
   const hashMatch = location.hash.match(/^#code=(.+)$/);
   const exampleId = new URLSearchParams(location.search).get('example');
   let restored = false;
@@ -915,14 +844,11 @@ async function boot() {
     return;
   }
 
-  // `?autorun=1` — an embedder (docs page, article) that already asked for
-  // this snippet should not make the reader press Run again.
   if (BOOT_PARAMS.get('autorun') === '1') runCode();
 }
 
 boot();
 
-// Debug/E2E handle (not a public API).
 window.__almidePlayground = {
   getFiles: () => {
     syncActive();
@@ -935,9 +861,6 @@ window.__almidePlayground = {
     editor.setDoc(text, { almd: isAlmd(files[active].name) });
     scheduleCheck();
   },
-  // Render arbitrary stdout into the Visual tab without compiling anything.
-  // The wasm compiler is built in CI and absent from a checkout, so this is the
-  // only way to exercise the SVG / PPM / HTML renderers locally.
   renderVisual: (stdout) => {
     const ok = renderVisual(stdout);
     if (ok) showTab('visual');

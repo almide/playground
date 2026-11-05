@@ -1,12 +1,5 @@
 name: Test
 
-# The examples and fixtures are checked against the compiler the playground
-# ships with: deploy.yml runs `cargo update almide` against almide's main
-# branch, so this job builds the almide CLI at main's current head. (A release
-# merge reaches main before its tag exists, so "the newest tag" can lag behind
-# what the deploy compiles with.) tests/run.mjs runs every fixture and every
-# example on native, on the CLI's wasm route, and on the incumbent renderer
-# the playground itself uses.
 on:
   pull_request:
   push:

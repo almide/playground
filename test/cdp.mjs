@@ -1,18 +1,3 @@
-// Chrome を CDP で操作する最小クライアント。
-// (almide-insta/assets/cdp.mjs と同じもの。このリポジトリ単体で動くよう複製している)
-//
-// なぜ必要か: headless の `--screenshot` / `--dump-dom` は「読み込みが終わった瞬間」に
-// 撮るだけで、待つ手段が `--virtual-time-budget` しかない。ところが仮想時間では
-// wasm やフォントの読み込みが完了しないので、**通ったように見えて何も検証できていない**
-// 画面が撮れてしまう(9発目で実際に騙されかけた)。実時間で待って測るには CDP がいる。
-//
-// 使う側:
-//   const chrome = await launch();
-//   const page = await chrome.page();
-//   await page.goto(url);
-//   const v = await page.eval(`document.title`);
-//   await chrome.close();
-
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -74,7 +59,6 @@ export async function launch({ port = 9222, width = 1080, height = 1350 } = {}) 
 
   const page = {
     send,
-    /** JS を評価して値を返す。例外は { __error } で返す(投げない) */
     async eval(expression) {
       const r = await send("Runtime.evaluate", {
         expression,
@@ -86,7 +70,6 @@ export async function launch({ port = 9222, width = 1080, height = 1350 } = {}) 
       }
       return r.result?.result?.value;
     },
-    /** 読み込み + フォント確定まで待って遷移する */
     async goto(url, { settle = 300 } = {}) {
       await send("Page.navigate", { url });
       for (let i = 0; i < 60; i++) {
@@ -94,7 +77,6 @@ export async function launch({ port = 9222, width = 1080, height = 1350 } = {}) 
         const ready = await this.eval(`document.readyState === 'complete'`);
         if (ready === true) break;
       }
-      // フォントが載る前に測ると桁幅がズレる
       await this.eval(`document.fonts ? document.fonts.ready.then(() => true) : true`);
       await sleep(settle);
     },
@@ -114,7 +96,6 @@ export async function launch({ port = 9222, width = 1080, height = 1350 } = {}) 
         ws.close();
       } catch {}
       proc.kill();
-      // Chrome が終わる前に消すとキャッシュが書き込み中で残る
       await sleep(300);
       try {
         rmSync(profile, { recursive: true, force: true });

@@ -1,8 +1,3 @@
-// Minimal dependency-free ZIP writer (store method, no compression — the
-// payload is a handful of small text files). Enough of the spec for every
-// unzip tool: local file headers + central directory + EOCD, CRC-32, UTF-8
-// names. Timestamps are fixed so the same tabs always produce the same zip.
-
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -41,14 +36,9 @@ class ByteWriter {
   }
 }
 
-// DOS date/time for 2026-01-01 00:00:00 — fixed for reproducible zips.
 const DOS_TIME = 0;
 const DOS_DATE = ((2026 - 1980) << 9) | (1 << 5) | 1;
 
-/**
- * entries: [{ name: string, text: string }] — names may contain '/'.
- * Returns a Blob ready for a download link.
- */
 export function buildZip(entries) {
   const enc = new TextEncoder();
   const w = new ByteWriter();
@@ -60,17 +50,17 @@ export function buildZip(entries) {
     const crc = crc32(data);
     const offset = w.length;
 
-    w.u32(0x04034b50); // local file header
-    w.u16(20);         // version needed
-    w.u16(0x0800);     // flags: UTF-8 names
-    w.u16(0);          // method: store
+    w.u32(0x04034b50);
+    w.u16(20);
+    w.u16(0x0800);
+    w.u16(0);
     w.u16(DOS_TIME);
     w.u16(DOS_DATE);
     w.u32(crc);
     w.u32(data.length);
     w.u32(data.length);
     w.u16(nameBytes.length);
-    w.u16(0);          // extra len
+    w.u16(0);
     w.bytes(nameBytes);
     w.bytes(data);
 
@@ -79,9 +69,9 @@ export function buildZip(entries) {
 
   const centralStart = w.length;
   for (const e of central) {
-    w.u32(0x02014b50); // central directory header
-    w.u16(20);         // version made by
-    w.u16(20);         // version needed
+    w.u32(0x02014b50);
+    w.u16(20);
+    w.u16(20);
     w.u16(0x0800);
     w.u16(0);
     w.u16(DOS_TIME);
@@ -90,17 +80,17 @@ export function buildZip(entries) {
     w.u32(e.data.length);
     w.u32(e.data.length);
     w.u16(e.nameBytes.length);
-    w.u16(0); // extra
-    w.u16(0); // comment
-    w.u16(0); // disk
-    w.u16(0); // internal attrs
-    w.u32(0); // external attrs
+    w.u16(0);
+    w.u16(0);
+    w.u16(0);
+    w.u16(0);
+    w.u32(0);
     w.u32(e.offset);
     w.bytes(e.nameBytes);
   }
   const centralSize = w.length - centralStart;
 
-  w.u32(0x06054b50); // end of central directory
+  w.u32(0x06054b50);
   w.u16(0);
   w.u16(0);
   w.u16(central.length);

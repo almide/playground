@@ -45,10 +45,6 @@ jobs:
       - name: Build Wasm
         run: cd crate && wasm-pack build --target web --out-dir ../web/pkg
 
-      # GitHub Pages lets a browser keep each file for 10 minutes, so right
-      # after a deploy one page could run this deploy's HTML with the last
-      # one's scripts. Every relative script URL carries the commit instead:
-      # a page only ever loads the scripts it was deployed with.
       - name: Stamp script URLs with the commit
         run: |
           v=${GITHUB_SHA::12}

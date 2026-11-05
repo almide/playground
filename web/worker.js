@@ -1,18 +1,3 @@
-// Compile + execute in a dedicated Worker so an infinite loop or a heavy
-// compile never freezes the UI. The main thread talks to this file through
-// runner.js; cancellation is worker.terminate() + respawn (no cooperative
-// cancellation needed — the whole isolate is disposable).
-//
-// Protocol (all messages carry the request `id`):
-//   → { id, op: 'version' }                          ← { id, done, ok, version }
-//   → { id, op: 'check', files, entry }              ← { id, done, ok, diagnostics }
-//   → { id, op: 'rust',  files, entry }              ← { id, done, ok, code }
-//   → { id, op: 'ast',   source }                    ← { id, done, ok, ast }
-//   → { id, op: 'run',   files, entry }              ← { id, event: 'compiled', ms }
-//                                                    ← { id, event: 'stdout'|'stderr', line }  (streamed)
-//                                                    ← { id, done, ok, exitCode, compileMs, runMs }
-//                                                    ← { id, done, ok: false, phase, error }
-
 import init, {
   compile_project_to_wasm,
   compile_project_to_rust,
@@ -28,8 +13,6 @@ import {
   ConsoleStdout,
 } from 'https://esm.sh/@bjorn3/browser_wasi_shim@0.4.2';
 
-// The deploy stamps every script URL with its commit (`?v=…`, see deploy.yml);
-// carry the stamp to the wasm, which a relative URL would otherwise drop.
 const ready = init({
   module_or_path: new URL('./pkg/almide_playground_bg.wasm' + self.location.search, import.meta.url),
 });
@@ -38,9 +21,6 @@ function post(msg) {
   self.postMessage(msg);
 }
 
-// Non-.almd tabs become an in-memory WASI directory, so `fs.read_text("data.csv")`
-// works in the browser exactly like it does natively next to the source file.
-// Exception: a tab named `stdin.txt` is wired to fd 0 instead of the FS.
 const STDIN_TAB = 'stdin.txt';
 
 function dataFileEntries(files) {
@@ -56,7 +36,7 @@ function dataFileEntries(files) {
 async function runWasm(id, wasmBytes, files) {
   const stdinBytes = new TextEncoder().encode(files[STDIN_TAB] ?? '');
   const fds = [
-    new OpenFile(new File(stdinBytes)), // fd 0: stdin (the stdin.txt tab, if any)
+    new OpenFile(new File(stdinBytes)),
     ConsoleStdout.lineBuffered((line) => post({ id, event: 'stdout', line })),
     ConsoleStdout.lineBuffered((line) => post({ id, event: 'stderr', line })),
     new PreopenDirectory('.', dataFileEntries(files)),
@@ -66,7 +46,7 @@ async function runWasm(id, wasmBytes, files) {
   const instance = await WebAssembly.instantiate(module, {
     wasi_snapshot_preview1: wasi.wasiImport,
   });
-  return wasi.start(instance); // returns the exit code (0 on clean exit)
+  return wasi.start(instance);
 }
 
 self.onmessage = async (e) => {

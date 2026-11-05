@@ -1,10 +1,3 @@
-// CodeMirror 6 editor for Almide. Build-less: packages resolve through the
-// importmap in index.html (esm.sh `*` builds share one @codemirror/state).
-//
-// The Almide mode is a StreamLanguage port of the old character-scanner
-// highlighter — keyword/module sets match the real lexer (see the 2026-07
-// keyword audit commit). Tokyo-night-ish colors match the previous Shiki theme.
-
 import { EditorState, Compartment, StateEffect } from '@codemirror/state';
 import {
   EditorView,
@@ -35,7 +28,6 @@ const KEYWORDS = new Set([
 ]);
 const BOOLS = new Set(['true', 'false']);
 const BUILTINS = new Set(['println', 'eprintln', 'assert', 'assert_eq', 'assert_ne']);
-// Kept in sync with `support.module.almide` in almide.tmLanguage.json.
 const MODULES = new Set([
   'string', 'list', 'map', 'set', 'int', 'float', 'bool', 'math', 'datetime',
   'error', 'value', 'bytes', 'matrix', 'option', 'result', 'prim', 'fs', 'env',
@@ -44,9 +36,6 @@ const MODULES = new Set([
   'url', 'uuid', 'unix', 'deque', 'heap',
 ]);
 
-// Text between the quotes. Stops at `${` so the interpolated expression is
-// lexed as real code, and at the closing quote. Only "…" and """…"""
-// interpolate — '…' is literal, so `'${x}'` prints the braces.
 function lexStringBody(stream, state) {
   const quote = state.str;
   const interpolates = quote !== "'";
@@ -80,13 +69,10 @@ function lexStringBody(stream, state) {
       return 'string';
     }
   }
-  // Only """ heredocs survive a line break.
   if (quote !== '"""') state.str = null;
   return 'string';
 }
 
-// Everything that is not a comment or string literal — also used for the
-// expression inside `${ … }`, so interpolated code gets its ordinary colors.
 function lexCode(stream, state) {
   if (stream.match(/^\d[\d_]*(\.\d+)?/)) return 'number';
   if (stream.match(/^[A-Z][A-Za-z0-9_]*/)) return 'typeName';
@@ -97,7 +83,6 @@ function lexCode(stream, state) {
       return 'keyword';
     }
     if (state.afterImport) {
-      // `import random`, `import self.spark`, `import self as pkg`
       if (word === 'self' || word === 'as') return 'keyword';
       state.mods.add(word);
       state.afterImport = false;
@@ -105,13 +90,10 @@ function lexCode(stream, state) {
     }
     if (KEYWORDS.has(word)) return 'keyword';
     if (BOOLS.has(word)) return 'number';
-    // Module names only qualify a member access, so `map` the variable and
-    // `map.get` the module keep their own colors.
     if ((MODULES.has(word) || state.mods.has(word)) && stream.match(/^\./, false)) {
       return 'module';
     }
     if (BUILTINS.has(word)) return 'builtin';
-    // fn-call position → function color (cheap lookahead).
     if (stream.match(/^\s*\(/, false)) return 'function';
     return 'variableName';
   }
@@ -129,13 +111,11 @@ const almideMode = {
   startState() {
     return { commentDepth: 0, str: null, interp: 0, mods: new Set(), afterImport: false };
   },
-  // `mods` is mutable, so each parser state copy needs its own.
   copyState(state) {
     return { ...state, mods: new Set(state.mods) };
   },
   token(stream, state) {
     if (stream.sol()) state.afterImport = false;
-    // Nested (* ... *) block comments, possibly spanning lines.
     if (state.commentDepth > 0) {
       while (!stream.eol()) {
         if (stream.match('(*')) state.commentDepth++;
@@ -146,7 +126,6 @@ const almideMode = {
       }
       return 'comment';
     }
-    // Inside `${ … }`: ordinary code until the brace that closes it.
     if (state.str && state.interp > 0) {
       if (stream.peek() === '}') {
         stream.next();
@@ -161,7 +140,6 @@ const almideMode = {
       if (stream.eatSpace()) return null;
       return lexCode(stream, state);
     }
-    // Inside a string literal (incl. """ heredocs, which span lines).
     if (state.str) return lexStringBody(stream, state);
 
     if (stream.eatSpace()) return null;
@@ -181,7 +159,6 @@ const almideMode = {
       stream.skipToEnd();
       return 'comment';
     }
-    // r"…" is raw: no interpolation, single line.
     if (stream.match(/^r"[^"]*"?/)) return 'string';
     if (stream.match('"""')) {
       state.str = '"""';
@@ -213,7 +190,6 @@ const almideMode = {
 };
 
 const almide = StreamLanguage.define(almideMode);
-// Plain-text tabs (csv/json/…) get no tokenizer at all.
 const plainText = [];
 
 const almideHighlight = HighlightStyle.define([
@@ -282,11 +258,6 @@ const almideTheme = EditorView.theme(
 
 const languageCompartment = new Compartment();
 
-/**
- * Create the editor.
- * @param {HTMLElement} parent
- * @param {{ onChange?: () => void, onRun?: () => void }} hooks
- */
 export function createEditor(parent, hooks = {}) {
   const runKeymap = keymap.of([
     {
@@ -300,7 +271,7 @@ export function createEditor(parent, hooks = {}) {
   ]);
 
   const baseExtensions = [
-    runKeymap, // before defaultKeymap so Mod-Enter wins
+    runKeymap,
     lineNumbers(),
     highlightActiveLineGutter(),
     highlightSpecialChars(),
@@ -314,7 +285,6 @@ export function createEditor(parent, hooks = {}) {
     lintGutter(),
     syntaxHighlighting(almideHighlight),
     almideTheme,
-    // A phone can't comfortably pan a horizontal code viewport — wrap instead.
     ...(window.matchMedia('(max-width: 768px)').matches ? [EditorView.lineWrapping] : []),
     keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
     EditorView.updateListener.of((update) => {
@@ -330,7 +300,6 @@ export function createEditor(parent, hooks = {}) {
     }),
   });
 
-  /** Full document swap (tab switch / example load / share restore). */
   function setDoc(text, { almd = true } = {}) {
     view.setState(
       EditorState.create({
@@ -344,7 +313,6 @@ export function createEditor(parent, hooks = {}) {
     return view.state.doc.toString();
   }
 
-  /** Replace the whole doc in place, keeping undo history (AI streaming). */
   function replaceDoc(text) {
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
   }
@@ -357,10 +325,6 @@ export function createEditor(parent, hooks = {}) {
     });
   }
 
-  /**
-   * Apply compiler diagnostics (crate `check_project` JSON entries) to the view.
-   * Positions are 1-indexed line/col with an exclusive endCol.
-   */
   function applyDiagnostics(entries) {
     const doc = view.state.doc;
     const diags = [];
@@ -386,7 +350,6 @@ export function createEditor(parent, hooks = {}) {
         severity: d.level === 'warning' ? 'warning' : 'error',
         message,
       };
-      // Compiler-provided quick fix: `try_snippet` + its exact replace range.
       if (d.trySnippet && d.tryReplace && d.tryReplace.length === 3) {
         const [l, c, ec] = d.tryReplace;
         if (l >= 1 && l <= doc.lines) {
