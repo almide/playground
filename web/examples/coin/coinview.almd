@@ -1,14 +1,3 @@
-// This tab is the `coinview` module — the coin itself, and the document.
-//
-// Heads is the polished field with the A mark struck in relief; tails is the
-// satin field with lathe rings. The A mark's hole is not fill-rule: the inner
-// triangle is wound the other way round, so the nonzero rule punches it out.
-//
-// Heredocs ("""...""") interpolate and strip indentation, which keeps the SVG
-// readable as SVG.
-//
-// Try it: change 4.4 to space the rings differently, or swap pol/sat.
-
 import self.gold
 
 let NS = "http://www.w3.org/2000/svg"

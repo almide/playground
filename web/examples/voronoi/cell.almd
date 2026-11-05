@@ -1,11 +1,3 @@
-// This tab is the `cell` module — which pane a point belongs to.
-//
-// Only the 3x3 neighbouring cells can hold the nearest seed, so the search is
-// nine lookups — no matter how large the picture gets.
-//
-// `near` returns the nearest distance, the second nearest, and a colour index.
-// The gap between the two distances is what draws the boundary.
-
 import math
 import self.glass
 

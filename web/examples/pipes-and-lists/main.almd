@@ -1,13 +1,6 @@
-// Pipes & lists
-//
-// `x |> f(a)` is just `f(x, a)` — the pipe inserts the left side as the
-// first argument. Data flows left to right, so a pipeline reads in the
-// same order it executes: no nested calls, no temp variables.
-
 fn main() -> Unit = {
   let words = ["the", "quick", "brown", "fox", "jumps", "over", "the", "lazy", "dog"]
 
-  // Keep the long words, tag each with its length — one pipeline.
   let long_words = words
     |> list.filter((w) => string.len(w) > 3)
     |> list.map((w) => "${w} (${int.to_string(string.len(w))})")
@@ -15,12 +8,9 @@ fn main() -> Unit = {
     println(w)
   }
 
-  // fold carries an accumulator; sum is the special case.
   let total = words |> list.map((w) => string.len(w)) |> list.sum
   println("total letters: ${int.to_string(total)}")
 
-  // Try it: insert |> list.unique before list.sort and watch the
-  // duplicates disappear.
   let lengths = words
     |> list.map((w) => string.len(w))
     |> list.sort
@@ -28,5 +18,3 @@ fn main() -> Unit = {
     |> list.join(", ")
   println("lengths: ${lengths}")
 }
-
-// Next: ?example=error-handling

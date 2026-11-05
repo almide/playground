@@ -1,8 +1,3 @@
-// This tab is the `glass` module — how a cell is coloured.
-//
-// Dark where the two nearest seeds are equally close (that is the leading),
-// brighter toward the middle of a pane (that is the thickness of the glass).
-
 import math
 
 let R = [44, 26, 112, 214, 52, 196, 74, 190]

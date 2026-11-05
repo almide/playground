@@ -1,9 +1,3 @@
-// Dice — a table you can read at a glance
-//
-// The six faces are data, not branches: each row of FACES draws the die it
-// stands for. `list.get` returns an Option because the index might be out of
-// range; `!` unwraps it and would propagate an error instead of crashing.
-
 import random
 
 let FACES = [

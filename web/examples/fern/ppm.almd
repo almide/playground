@@ -1,9 +1,3 @@
-// This tab is the `ppm` module — buffer to picture.
-//
-// P3 is the text PPM format: header, then R G B per pixel. `tint` maps a hit
-// count to a green, so dense areas read brighter — that is what makes the
-// fern look like a plant instead of a scatter plot.
-
 import bytes
 
 fn tint(c: Int) -> String = {

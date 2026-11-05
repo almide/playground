@@ -1,18 +1,3 @@
-// Maze — dig until you are stuck, then back up
-//
-// The recursive backtracker: from the current cell, try the four directions in
-// random order; step into any neighbour that has not been dug yet and recurse.
-// When all four are taken, `step` runs out of directions and returns — that
-// return *is* the backtracking. No stack, no visited set: the call stack is
-// the stack, and "has a direction written in it" means visited.
-//
-// Every cell is reached exactly once, so the passages form a tree: exactly one
-// route between any two cells. That is what makes it a proper maze.
-//
-// The Visual tab renders what you print, so this ends up an <svg> document.
-//
-// Try it: change N in the grid tab for a bigger maze.
-
 import random
 import self.grid
 import self.view
@@ -45,5 +30,3 @@ effect fn main() -> Unit = {
   let start = grid.mark(grid.blank(), 0, 0, 5)
   println(view.doc(carve(0, 0, start)!))
 }
-
-// Next: ?example=truchet

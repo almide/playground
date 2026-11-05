@@ -1,8 +1,3 @@
-// Mini Markdown → HTML — a real converter in ~50 lines.
-//
-// This is the playground's classic demo: an ADT for block shapes, a
-// parser that classifies each line, and a pipeline that renders HTML.
-
 type Block =
   | Heading(Int, String)
   | Bullet(String)
@@ -47,7 +42,6 @@ fn wrap_lists(blocks: List[Block]) -> List[String] = {
 }
 
 fn main() -> Unit = {
-  // Try it: edit the markdown below — add a ### heading or more **bold**.
   let md = """
 # Almide Playground
 
@@ -69,5 +63,3 @@ It's **compact** and **expressive**.
     |> list.join("\n")
     |> println
 }
-
-// Next: ?example=pattern-matching

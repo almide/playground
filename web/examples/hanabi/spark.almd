@@ -1,8 +1,3 @@
-// This tab is the `spark` module — one particle of the flower.
-//
-// i identifies the particle: i / 7 picks the ray, i % 7 how far out
-// along it. Polar to cartesian, then a single <circle>.
-
 import math
 
 fn at(i: Int, step: Float) -> String = {

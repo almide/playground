@@ -1,9 +1,3 @@
-// Read a data file
-//
-// The data.csv tab is a real file to this program: the playground mounts
-// every non-.almd tab into an in-memory filesystem, so fs.read_text works
-// here exactly like it does natively next to your source file.
-
 import fs
 
 type Row = { name: String, score: Int }
@@ -21,7 +15,7 @@ effect fn main() -> Result[Unit, String] = {
   let rows = text
     |> string.trim
     |> string.lines
-    |> list.drop(1)          // skip the header line
+    |> list.drop(1)
     |> list.map(parse_row)
 
   for r in rows {
@@ -34,7 +28,4 @@ effect fn main() -> Result[Unit, String] = {
   println("---")
   println("average: ${int.to_string(avg)}")
 
-  // Try it: edit the data.csv tab — add yourself a row — and press Run.
 }
-
-// Next: ?example=mini-markdown

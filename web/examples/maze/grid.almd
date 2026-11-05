@@ -1,13 +1,3 @@
-// This tab is the `grid` module — the board, and where each cell came from.
-//
-// One list of N*N numbers is the whole maze. Each cell holds the direction
-// back to the cell it was dug from: 1=N 2=E 3=S 4=W, 0 = not dug yet, 5 = start.
-// So `at` returning 0 means "unvisited", and out of bounds returns -1 — which
-// is also non-zero, so one test rejects both.
-//
-// A wall stands between two cells unless one of them was dug from the other.
-// That is all `wall_n` and `wall_w` are checking.
-
 type Maze = List[Int]
 
 let N = 17

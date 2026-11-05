@@ -1,13 +1,3 @@
-// Barnsley fern — half a million random points, four affine maps
-//
-// The chaos game: start at the origin, pick one of four affine maps at random
-// (weighted), apply it, plot where you land, repeat. The attractor is a fern.
-// Points go into a byte buffer as hit counts, so density shades the image.
-//
-// The Visual tab renders what you print — here a PPM image, like ?example=mandelbrot.
-//
-// Reference: https://math-fun.net/20190916/2933/
-
 import bytes
 import random
 import self.ifs
@@ -38,5 +28,3 @@ effect fn main() -> Unit = {
   walk(buf, 500000)!
   ppm.emit(buf, W, H)
 }
-
-// Next: ?example=mandelbrot

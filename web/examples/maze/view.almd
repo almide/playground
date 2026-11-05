@@ -1,13 +1,3 @@
-// This tab is the `view` module — the SVG, and nothing but the SVG.
-//
-// `walls` and `row` are the usual double recursion over the grid.
-//
-// `trail` is the interesting one. The maze is a tree and every cell records
-// where it was dug from, so the way out is not searched for — you start at the
-// far corner and follow the parents home. The generator already knew.
-//
-// Try it: delete the red <path> and print a maze you have to solve yourself.
-
 import self.grid
 
 fn n(v: Int) -> String = int.to_string(v)

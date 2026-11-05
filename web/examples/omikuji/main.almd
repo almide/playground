@@ -1,9 +1,3 @@
-// Omikuji — a shrine fortune, dev edition
-//
-// `random.choice` is an effect fn returning Option[T]. The `!`
-// unwraps both layers at once — an empty list would propagate
-// an error instead of crashing.
-
 import random
 
 effect fn main() -> Unit = {
